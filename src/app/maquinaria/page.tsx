@@ -1,0 +1,575 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import {
+    Plus,
+    Search,
+    Edit,
+    Trash2,
+    Clock,
+    Filter,
+    X,
+    Save,
+    RefreshCw
+} from 'lucide-react';
+import { createClient } from '@/lib/supabase';
+import { Maquinaria, TipoMaquinaria, EstadoMaquinaria, ICONOS_MAQUINARIA, EMPRESAS } from '@/lib/types';
+import { formatNumber } from '@/lib/utils';
+
+const TIPOS: TipoMaquinaria[] = [
+    'EXCAVADORA', 'MOTONIVELADORA', 'CARGADOR FRONTAL', 'RETROEXCAVADORA',
+    'RODILLO LISO', 'VOLQUETE', 'CISTERNA DE AGUA', 'CISTERNA DE COMBUSTIBLE', 'CAMIONETA'
+];
+
+const ESTADOS: EstadoMaquinaria[] = ['OPERATIVO', 'EN MANTENIMIENTO', 'INOPERATIVO', 'ALQUILADO'];
+
+const DEMO_MAQUINARIA = [
+    { id: '1', item: 1, serie: 'FAL10955', tipo: 'EXCAVADORA', modelo: '320D', marca: 'CATERPILLAR', año: 2012, codigo: 'EXC-01', empresa: 'JORGE LUIS VASQUEZ CUSMA', operador: 'JOSE ABANTO', tramo: 'CVP KM 25', estado: 'OPERATIVO', horas_actuales: 15612, alerta_mtto: false, updated_at: '2026-01-28' },
+    { id: '2', item: 2, serie: '8WN00983', tipo: 'MOTONIVELADORA', modelo: '135H', marca: 'CATERPILLAR', año: 2010, codigo: 'MOT-01', empresa: 'JOMEX CONSTRUCTORA S.A.C', operador: 'CARLOS RUIZ', tramo: 'TONGOT', estado: 'OPERATIVO', horas_actuales: 12450, alerta_mtto: true, updated_at: '2026-01-27' },
+    { id: '3', item: 3, serie: 'MTN00312', tipo: 'CARGADOR FRONTAL', modelo: '950H', marca: 'CATERPILLAR', año: 2011, codigo: 'CAR-01', empresa: 'JORGE LUIS VASQUEZ CUSMA', operador: 'PEDRO SILVA', tramo: 'ALMACEN', estado: 'EN MANTENIMIENTO', horas_actuales: 8900, alerta_mtto: true, updated_at: '2026-01-26' },
+    { id: '4', item: 4, serie: 'WDB9302', tipo: 'VOLQUETE', modelo: 'ACTROS 3336K', marca: 'MERCEDES BENZ', año: 2015, codigo: 'VOL-01', empresa: 'JLMX VASQUEZ EJECUTORES E.I.R.L', operador: 'MIGUEL TORRES', tramo: 'CVP KM 30', estado: 'OPERATIVO', horas_actuales: 45000, alerta_mtto: false, updated_at: '2026-01-28' },
+    { id: '5', item: 5, serie: 'YV2RT20', tipo: 'CISTERNA DE AGUA', modelo: 'FM', marca: 'VOLVO', año: 2018, codigo: 'CIST-01', empresa: 'JORGE LUIS VASQUEZ CUSMA', operador: 'JORG VASQUEZ', tramo: 'AV BAMBAMARCA (CHOTA)', estado: 'OPERATIVO', horas_actuales: 23500, alerta_mtto: false, updated_at: '2026-01-28' },
+    { id: '6', item: 6, serie: 'CAT53312', tipo: 'RODILLO LISO', modelo: 'CS-533E', marca: 'CATERPILLAR', año: 2013, codigo: 'ROD-01', empresa: 'JOMEX CONSTRUCTORA S.A.C', operador: 'SIN ASIGNAR', tramo: 'ALMACEN', estado: 'INOPERATIVO', horas_actuales: 5600, alerta_mtto: false, updated_at: '2026-01-20' },
+    { id: '7', item: 7, serie: 'CAT42098', tipo: 'RETROEXCAVADORA', modelo: '420F', marca: 'CATERPILLAR', año: 2016, codigo: 'RET-01', empresa: 'JORGE LUIS VASQUEZ CUSMA', operador: 'LUIS MENDEZ', tramo: 'PROYECTO NORTE', estado: 'OPERATIVO', horas_actuales: 9800, alerta_mtto: false, updated_at: '2026-01-28' },
+    { id: '8', item: 8, serie: 'FORD8821', tipo: 'CAMIONETA', modelo: 'RANGER XLT', marca: 'FORD', año: 2020, codigo: 'CAM-01', empresa: 'JORGE LUIS VASQUEZ CUSMA', operador: 'ADMIN', tramo: 'OFICINA CENTRAL', estado: 'OPERATIVO', horas_actuales: 120000, alerta_mtto: false, updated_at: '2026-01-28' },
+];
+
+export default function MaquinariaPage() {
+    const [maquinaria, setMaquinaria] = useState<any[]>(DEMO_MAQUINARIA);
+    const [filteredData, setFilteredData] = useState<any[]>(DEMO_MAQUINARIA);
+    const [loading, setLoading] = useState(true);
+    const [showModal, setShowModal] = useState(false);
+    const [showHorasModal, setShowHorasModal] = useState(false);
+    const [editingItem, setEditingItem] = useState<any>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterTipo, setFilterTipo] = useState('');
+    const [filterEstado, setFilterEstado] = useState('');
+    const [newHoras, setNewHoras] = useState('');
+    const [usingDemo, setUsingDemo] = useState(true);
+
+    const emptyForm = {
+        item: 0,
+        serie: '',
+        tipo: 'EXCAVADORA' as TipoMaquinaria,
+        modelo: '',
+        marca: '',
+        año: new Date().getFullYear(),
+        codigo: '',
+        empresa: EMPRESAS[0],
+        operador: '',
+        tramo: '',
+        estado: 'OPERATIVO' as EstadoMaquinaria,
+        horas_actuales: 0,
+        alerta_mtto: false,
+    };
+
+    const [formData, setFormData] = useState(emptyForm);
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    useEffect(() => {
+        filterData();
+    }, [searchTerm, filterTipo, filterEstado, maquinaria]);
+
+    async function fetchData() {
+        try {
+            const supabase = createClient();
+            const { data, error } = await supabase.from('maquinaria').select('*').order('item');
+
+            if (error || !data?.length) {
+                setUsingDemo(true);
+                setMaquinaria(DEMO_MAQUINARIA);
+            } else {
+                setUsingDemo(false);
+                setMaquinaria(data);
+            }
+        } catch {
+            setUsingDemo(true);
+            setMaquinaria(DEMO_MAQUINARIA);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    function filterData() {
+        let result = [...maquinaria];
+
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            result = result.filter(m =>
+                m.codigo?.toLowerCase().includes(term) ||
+                m.serie?.toLowerCase().includes(term) ||
+                m.modelo?.toLowerCase().includes(term) ||
+                m.operador?.toLowerCase().includes(term)
+            );
+        }
+
+        if (filterTipo) {
+            result = result.filter(m => m.tipo === filterTipo);
+        }
+
+        if (filterEstado) {
+            result = result.filter(m => m.estado === filterEstado);
+        }
+
+        setFilteredData(result);
+    }
+
+    function openCreateModal() {
+        setFormData({ ...emptyForm, item: maquinaria.length + 1 });
+        setEditingItem(null);
+        setShowModal(true);
+    }
+
+    function openEditModal(item: any) {
+        setFormData(item);
+        setEditingItem(item);
+        setShowModal(true);
+    }
+
+    function openHorasModal(item: any) {
+        setEditingItem(item);
+        setNewHoras(item.horas_actuales.toString());
+        setShowHorasModal(true);
+    }
+
+    async function handleSave() {
+        if (usingDemo) {
+            // Demo mode - update local state
+            if (editingItem) {
+                setMaquinaria(prev => prev.map(m => m.id === editingItem.id ? { ...formData, id: editingItem.id, updated_at: new Date().toISOString() } : m));
+            } else {
+                const newItem = { ...formData, id: Date.now().toString(), updated_at: new Date().toISOString() };
+                setMaquinaria(prev => [...prev, newItem]);
+            }
+            setShowModal(false);
+            return;
+        }
+
+        try {
+            const supabase = createClient();
+
+            if (editingItem) {
+                await supabase.from('maquinaria').update(formData).eq('id', editingItem.id);
+            } else {
+                await supabase.from('maquinaria').insert([formData]);
+            }
+
+            fetchData();
+            setShowModal(false);
+        } catch (error) {
+            console.error('Error saving:', error);
+        }
+    }
+
+    async function handleUpdateHoras() {
+        const horas = parseFloat(newHoras);
+        if (isNaN(horas) || horas < editingItem.horas_actuales) {
+            alert('Las horas deben ser mayores al valor actual');
+            return;
+        }
+
+        if (usingDemo) {
+            setMaquinaria(prev => prev.map(m =>
+                m.id === editingItem.id
+                    ? { ...m, horas_actuales: horas, updated_at: new Date().toISOString() }
+                    : m
+            ));
+            setShowHorasModal(false);
+            return;
+        }
+
+        try {
+            const supabase = createClient();
+            await supabase.from('maquinaria')
+                .update({ horas_actuales: horas, updated_at: new Date().toISOString() })
+                .eq('id', editingItem.id);
+
+            fetchData();
+            setShowHorasModal(false);
+        } catch (error) {
+            console.error('Error updating hours:', error);
+        }
+    }
+
+    async function handleDelete(id: string) {
+        if (!confirm('¿Está seguro de eliminar este equipo?')) return;
+
+        if (usingDemo) {
+            setMaquinaria(prev => prev.filter(m => m.id !== id));
+            return;
+        }
+
+        try {
+            const supabase = createClient();
+            await supabase.from('maquinaria').delete().eq('id', id);
+            fetchData();
+        } catch (error) {
+            console.error('Error deleting:', error);
+        }
+    }
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-96">
+                <div className="spinner"></div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-800">Gestión de Maquinaria</h1>
+                    <p className="text-gray-500 mt-1">Administra tu flota de equipos pesados</p>
+                </div>
+                <div className="flex gap-3">
+                    {usingDemo && (
+                        <span className="bg-amber-100 text-amber-800 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+                            ⚠️ Modo Demo
+                        </span>
+                    )}
+                    <button onClick={openCreateModal} className="btn btn-primary">
+                        <Plus size={20} />
+                        Nuevo Equipo
+                    </button>
+                </div>
+            </div>
+
+            {/* Filters */}
+            <div className="card p-4">
+                <div className="flex flex-wrap gap-4">
+                    <div className="flex-1 min-w-64">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                            <input
+                                type="text"
+                                placeholder="Buscar por código, serie, modelo u operador..."
+                                className="input pl-10"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <select
+                        className="input select w-48"
+                        value={filterTipo}
+                        onChange={(e) => setFilterTipo(e.target.value)}
+                    >
+                        <option value="">Todos los tipos</option>
+                        {TIPOS.map(t => (
+                            <option key={t} value={t}>{t}</option>
+                        ))}
+                    </select>
+                    <select
+                        className="input select w-48"
+                        value={filterEstado}
+                        onChange={(e) => setFilterEstado(e.target.value)}
+                    >
+                        <option value="">Todos los estados</option>
+                        {ESTADOS.map(e => (
+                            <option key={e} value={e}>{e}</option>
+                        ))}
+                    </select>
+                    <button
+                        onClick={() => { setSearchTerm(''); setFilterTipo(''); setFilterEstado(''); }}
+                        className="btn btn-outline"
+                    >
+                        <Filter size={18} />
+                        Limpiar
+                    </button>
+                </div>
+            </div>
+
+            {/* Table */}
+            <div className="card overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="data-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Código</th>
+                                <th>Tipo</th>
+                                <th>Modelo</th>
+                                <th>Marca</th>
+                                <th>Operador</th>
+                                <th>Tramo</th>
+                                <th>Horas</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredData.map((m) => (
+                                <tr key={m.id}>
+                                    <td>{m.item}</td>
+                                    <td className="font-semibold">{m.codigo}</td>
+                                    <td>
+                                        <span className="flex items-center gap-2">
+                                            <span className="text-xl">{ICONOS_MAQUINARIA[m.tipo as TipoMaquinaria] || '🔧'}</span>
+                                            <span className="text-sm">{m.tipo}</span>
+                                        </span>
+                                    </td>
+                                    <td>{m.modelo}</td>
+                                    <td>{m.marca}</td>
+                                    <td>{m.operador}</td>
+                                    <td className="max-w-32 truncate" title={m.tramo}>{m.tramo}</td>
+                                    <td>
+                                        <button
+                                            onClick={() => openHorasModal(m)}
+                                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium"
+                                        >
+                                            <Clock size={16} />
+                                            {formatNumber(m.horas_actuales)}
+                                        </button>
+                                    </td>
+                                    <td>
+                                        <span className={`badge badge-${m.estado.toLowerCase().replace(' ', '')}`}>
+                                            {m.estado}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => openEditModal(m)}
+                                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                title="Editar"
+                                            >
+                                                <Edit size={18} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(m.id)}
+                                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                title="Eliminar"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                <div className="p-4 border-t border-gray-100 bg-gray-50">
+                    <p className="text-sm text-gray-500">
+                        Mostrando {filteredData.length} de {maquinaria.length} equipos
+                    </p>
+                </div>
+            </div>
+
+            {/* Modal Crear/Editar */}
+            {showModal && (
+                <div className="modal-overlay" onClick={() => setShowModal(false)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <div className="p-6 border-b border-gray-100">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-xl font-bold text-gray-800">
+                                    {editingItem ? 'Editar Equipo' : 'Nuevo Equipo'}
+                                </h2>
+                                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                                    <X size={24} />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Código *</label>
+                                    <input
+                                        type="text"
+                                        className="input"
+                                        value={formData.codigo}
+                                        onChange={e => setFormData({ ...formData, codigo: e.target.value.toUpperCase() })}
+                                        placeholder="EXC-01"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Serie *</label>
+                                    <input
+                                        type="text"
+                                        className="input"
+                                        value={formData.serie}
+                                        onChange={e => setFormData({ ...formData, serie: e.target.value.toUpperCase() })}
+                                        placeholder="FAL10955"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo *</label>
+                                    <select
+                                        className="input select"
+                                        value={formData.tipo}
+                                        onChange={e => setFormData({ ...formData, tipo: e.target.value as TipoMaquinaria })}
+                                    >
+                                        {TIPOS.map(t => (
+                                            <option key={t} value={t}>{ICONOS_MAQUINARIA[t]} {t}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Estado *</label>
+                                    <select
+                                        className="input select"
+                                        value={formData.estado}
+                                        onChange={e => setFormData({ ...formData, estado: e.target.value as EstadoMaquinaria })}
+                                    >
+                                        {ESTADOS.map(e => (
+                                            <option key={e} value={e}>{e}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Modelo *</label>
+                                    <input
+                                        type="text"
+                                        className="input"
+                                        value={formData.modelo}
+                                        onChange={e => setFormData({ ...formData, modelo: e.target.value })}
+                                        placeholder="320D"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Marca *</label>
+                                    <input
+                                        type="text"
+                                        className="input"
+                                        value={formData.marca}
+                                        onChange={e => setFormData({ ...formData, marca: e.target.value.toUpperCase() })}
+                                        placeholder="CATERPILLAR"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Año *</label>
+                                    <input
+                                        type="number"
+                                        className="input"
+                                        value={formData.año}
+                                        onChange={e => setFormData({ ...formData, año: parseInt(e.target.value) })}
+                                        min={1980}
+                                        max={new Date().getFullYear() + 1}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Empresa *</label>
+                                <select
+                                    className="input select"
+                                    value={formData.empresa}
+                                    onChange={e => setFormData({ ...formData, empresa: e.target.value })}
+                                >
+                                    {EMPRESAS.map(emp => (
+                                        <option key={emp} value={emp}>{emp}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Operador</label>
+                                    <input
+                                        type="text"
+                                        className="input"
+                                        value={formData.operador}
+                                        onChange={e => setFormData({ ...formData, operador: e.target.value.toUpperCase() })}
+                                        placeholder="JOSE ABANTO"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tramo/Ubicación</label>
+                                    <input
+                                        type="text"
+                                        className="input"
+                                        value={formData.tramo}
+                                        onChange={e => setFormData({ ...formData, tramo: e.target.value.toUpperCase() })}
+                                        placeholder="CVP KM 25"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Horas Actuales *</label>
+                                <input
+                                    type="number"
+                                    className="input"
+                                    value={formData.horas_actuales}
+                                    onChange={e => setFormData({ ...formData, horas_actuales: parseFloat(e.target.value) })}
+                                    min={0}
+                                    step={0.1}
+                                />
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+                            <button onClick={() => setShowModal(false)} className="btn btn-outline">
+                                Cancelar
+                            </button>
+                            <button onClick={handleSave} className="btn btn-primary">
+                                <Save size={18} />
+                                Guardar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Actualizar Horas */}
+            {showHorasModal && editingItem && (
+                <div className="modal-overlay" onClick={() => setShowHorasModal(false)}>
+                    <div className="modal-content max-w-md" onClick={e => e.stopPropagation()}>
+                        <div className="p-6 border-b border-gray-100">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-xl font-bold text-gray-800">Actualizar Horómetro</h2>
+                                <button onClick={() => setShowHorasModal(false)} className="text-gray-400 hover:text-gray-600">
+                                    <X size={24} />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="p-6">
+                            <div className="text-center mb-6">
+                                <p className="text-4xl mb-2">{ICONOS_MAQUINARIA[editingItem.tipo as TipoMaquinaria] || '🔧'}</p>
+                                <p className="font-bold text-lg text-gray-800">{editingItem.codigo}</p>
+                                <p className="text-gray-500">{editingItem.tipo} - {editingItem.modelo}</p>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-xl p-4 mb-4">
+                                <p className="text-sm text-gray-500">Horas actuales</p>
+                                <p className="text-2xl font-bold text-gray-800">{formatNumber(editingItem.horas_actuales)} h</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Nueva lectura de horómetro</label>
+                                <input
+                                    type="number"
+                                    className="input text-xl font-bold text-center"
+                                    value={newHoras}
+                                    onChange={e => setNewHoras(e.target.value)}
+                                    min={editingItem.horas_actuales}
+                                    step={0.1}
+                                />
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+                            <button onClick={() => setShowHorasModal(false)} className="btn btn-outline">
+                                Cancelar
+                            </button>
+                            <button onClick={handleUpdateHoras} className="btn btn-secondary">
+                                <RefreshCw size={18} />
+                                Actualizar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
