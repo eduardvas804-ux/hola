@@ -21,23 +21,29 @@ export default function LoginPage() {
         try {
             const supabase = createClient();
             if (!supabase) {
-                setError('Sistema no configurado. Contacte al administrador.');
+                setError('Error de configuración: Variables de entorno no configuradas en el servidor.');
+                setLoading(false);
                 return;
             }
 
-            const { error } = await supabase.auth.signInWithPassword({
+            const { error: authError } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
 
-            if (error) {
-                setError(error.message);
+            if (authError) {
+                if (authError.message.includes('Invalid login')) {
+                    setError('Credenciales incorrectas');
+                } else {
+                    setError(authError.message);
+                }
             } else {
                 router.push('/');
                 router.refresh();
             }
         } catch (err: any) {
-            setError(err.message || 'Ocurrió un error');
+            console.error('Login error:', err);
+            setError('Error de conexión. Verifique su internet o contacte al administrador.');
         } finally {
             setLoading(false);
         }
