@@ -2,7 +2,7 @@ import { createClient as createClientJS, SupabaseClient } from '@supabase/supaba
 
 let supabaseInstance: SupabaseClient | null = null;
 
-export function createClient() {
+export function createClient(): SupabaseClient | null {
     if (supabaseInstance) {
         return supabaseInstance;
     }
@@ -11,10 +11,11 @@ export function createClient() {
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!url || !key) {
-        console.error('⚠️ Supabase URL o Key no configuradas');
+        console.warn('⚠️ Supabase URL o Key no configuradas');
+        return null;
     }
 
-    supabaseInstance = createClientJS(url!, key!, {
+    supabaseInstance = createClientJS(url, key, {
         auth: {
             persistSession: true,
             autoRefreshToken: true,
@@ -31,18 +32,17 @@ export function createClient() {
 }
 
 export const createAdminClient = () => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceRoleKey) {
-        throw new Error('SUPABASE_SERVICE_ROLE_KEY is not defined');
+
+    if (!url || !serviceRoleKey) {
+        throw new Error('Variables de Supabase no configuradas');
     }
-    return createClientJS(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        serviceRoleKey,
-        {
-            auth: {
-                autoRefreshToken: false,
-                persistSession: false
-            }
+
+    return createClientJS(url, serviceRoleKey, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
         }
-    );
+    });
 };

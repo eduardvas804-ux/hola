@@ -49,6 +49,13 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         let isMounted = true;
         const supabase = createClient();
 
+        // Si Supabase no está configurado, no intentar autenticar
+        if (!supabase) {
+            console.warn('⚠️ Supabase no configurado - modo sin autenticación');
+            setLoading(false);
+            return;
+        }
+
         // Timeout de seguridad - si tarda más de 3s, continuar sin sesión
         const timeout = setTimeout(() => {
             if (isMounted && loading) {
@@ -100,6 +107,11 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     async function fetchProfile(userId: string) {
         try {
             const supabase = createClient();
+            if (!supabase) {
+                setLoading(false);
+                return;
+            }
+
             const { data, error } = await supabase
                 .from('perfiles')
                 .select('*')
@@ -160,7 +172,9 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
     async function signOut() {
         const supabase = createClient();
-        await supabase.auth.signOut();
+        if (supabase) {
+            await supabase.auth.signOut();
+        }
         router.push('/login');
     }
 
