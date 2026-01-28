@@ -77,9 +77,18 @@ export default function Dashboard() {
     let cancelled = false;
 
     async function fetchData() {
-      const url = 'https://slotbyxzdyraowhbcrrh.supabase.co/rest/v1';
-      const apiKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-      const headers = { 'apikey': apiKey, 'Authorization': `Bearer ${apiKey}` };
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const apiKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      // Si no hay configuración, mantener datos de demo
+      if (!supabaseUrl || !apiKey) {
+        console.warn('⚠️ Variables de Supabase no configuradas, usando datos de demo');
+        setLoading(false);
+        return;
+      }
+
+      const url = `${supabaseUrl}/rest/v1`;
+      const headers: HeadersInit = { 'apikey': apiKey, 'Authorization': `Bearer ${apiKey}` };
 
       try {
         // Cargar todos los datos en paralelo

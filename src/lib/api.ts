@@ -1,9 +1,14 @@
 'use client';
 
-const SUPABASE_URL = 'https://slotbyxzdyraowhbcrrh.supabase.co/rest/v1';
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1`
+    : '';
 
-function getHeaders() {
-    const apiKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+function getHeaders(): HeadersInit {
+    const apiKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    if (!apiKey) {
+        console.warn('⚠️ NEXT_PUBLIC_SUPABASE_ANON_KEY no está configurada');
+    }
     return {
         'apikey': apiKey,
         'Authorization': `Bearer ${apiKey}`,
@@ -12,12 +17,22 @@ function getHeaders() {
     };
 }
 
+function isConfigured(): boolean {
+    return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+}
+
 export async function fetchTable<T>(table: string, query: string = ''): Promise<T[]> {
-    const response = await fetch(`${SUPABASE_URL}/${table}?select=*${query}`, {
-        headers: getHeaders()
-    });
-    if (!response.ok) return [];
-    return response.json();
+    if (!isConfigured()) return [];
+    try {
+        const response = await fetch(`${SUPABASE_URL}/${table}?select=*${query}`, {
+            headers: getHeaders()
+        });
+        if (!response.ok) return [];
+        return response.json();
+    } catch (error) {
+        console.error('Error fetching:', error);
+        return [];
+    }
 }
 
 export async function insertRow<T>(table: string, data: Partial<T>): Promise<T | null> {
