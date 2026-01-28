@@ -9,10 +9,12 @@ import {
     Clock,
     Edit,
     X,
-    Save
+    Save,
+    Download
 } from 'lucide-react';
-import { createClient } from '@/lib/supabase';
+import { fetchTable, updateRow } from '@/lib/api';
 import { formatDate, calcularAlertaDocumento } from '@/lib/utils';
+import { exportToExcel, formatSoatForExport } from '@/lib/export';
 
 const DEMO_SOAT = [
     { id: '1', codigo: 'VOL-01', tipo: 'VOLQUETE', modelo: 'ACTROS 3336K', placa_serie: 'WDB9302', empresa: 'JLMX VASQUEZ EJECUTORES E.I.R.L', fecha_vencimiento: '2026-02-10' },
@@ -36,15 +38,13 @@ export default function SOATPage() {
 
     async function fetchData() {
         try {
-            const supabase = createClient();
-            const { data, error } = await supabase.from('soat').select('*').order('fecha_vencimiento');
-
-            if (error || !data?.length) {
-                setUsingDemo(true);
-                setSoat(DEMO_SOAT);
-            } else {
+            const data = await fetchTable<any>('soat', '&order=fecha_vencimiento');
+            if (data?.length > 0) {
                 setUsingDemo(false);
                 setSoat(data);
+            } else {
+                setUsingDemo(true);
+                setSoat(DEMO_SOAT);
             }
         } catch {
             setUsingDemo(true);
@@ -67,6 +67,11 @@ export default function SOATPage() {
         vigente: soatConEstado.filter(s => s.dias_restantes > 30).length,
     };
 
+    function handleExport() {
+        const dataToExport = formatSoatForExport(soatConEstado);
+        exportToExcel(dataToExport, 'SOAT_' + new Date().toISOString().split('T')[0], 'SOAT');
+    }
+
     function openRenovarModal(item: any) {
         setSelectedItem(item);
         // Calcular nueva fecha + 1 año
@@ -88,10 +93,7 @@ export default function SOATPage() {
         }
 
         try {
-            const supabase = createClient();
-            await supabase.from('soat')
-                .update({ fecha_vencimiento: newFecha })
-                .eq('id', selectedItem.id);
+            await updateRow('soat', selectedItem.id, { fecha_vencimiento: newFecha });
             fetchData();
             setShowModal(false);
         } catch (error) {
@@ -115,11 +117,17 @@ export default function SOATPage() {
                     <h1 className="text-3xl font-bold text-gray-800">Control de SOAT</h1>
                     <p className="text-gray-500 mt-1">Seguimiento de Seguros Obligatorios de Accidentes de Tránsito</p>
                 </div>
-                {usingDemo && (
-                    <span className="bg-amber-100 text-amber-800 px-3 py-2 rounded-lg text-sm font-medium">
-                        ⚠️ Modo Demo
-                    </span>
-                )}
+                <div className="flex items-center gap-3">
+                    <button onClick={handleExport} className="btn btn-outline">
+                        <Download size={18} />
+                        Exportar Excel
+                    </button>
+                    {usingDemo && (
+                        <span className="bg-amber-100 text-amber-800 px-3 py-2 rounded-lg text-sm font-medium">
+                            ⚠️ Modo Demo
+                        </span>
+                    )}
+                </div>
             </div>
 
             {/* Stats */}

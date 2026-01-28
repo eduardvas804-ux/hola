@@ -9,10 +9,12 @@ import {
     Clock,
     Edit,
     X,
-    Save
+    Save,
+    Download
 } from 'lucide-react';
-import { createClient } from '@/lib/supabase';
+import { fetchTable, updateRow } from '@/lib/api';
 import { formatDate, calcularAlertaDocumento } from '@/lib/utils';
+import { exportToExcel, formatCitvForExport } from '@/lib/export';
 
 const DEMO_CITV = [
     { id: '1', codigo: 'VOL-01', tipo: 'VOLQUETE', modelo: 'ACTROS 3336K', placa_serie: 'WDB9302', empresa: 'JLMX VASQUEZ EJECUTORES E.I.R.L', fecha_vencimiento: '2026-02-20' },
@@ -36,15 +38,13 @@ export default function CITVPage() {
 
     async function fetchData() {
         try {
-            const supabase = createClient();
-            const { data, error } = await supabase.from('citv').select('*').order('fecha_vencimiento');
-
-            if (error || !data?.length) {
-                setUsingDemo(true);
-                setCitv(DEMO_CITV);
-            } else {
+            const data = await fetchTable<any>('citv', '&order=fecha_vencimiento');
+            if (data?.length > 0) {
                 setUsingDemo(false);
                 setCitv(data);
+            } else {
+                setUsingDemo(true);
+                setCitv(DEMO_CITV);
             }
         } catch {
             setUsingDemo(true);
@@ -66,6 +66,11 @@ export default function CITVPage() {
         vigente: citvConEstado.filter(c => c.dias_restantes > 30).length,
     };
 
+    function handleExport() {
+        const dataToExport = formatCitvForExport(citvConEstado);
+        exportToExcel(dataToExport, 'CITV_' + new Date().toISOString().split('T')[0], 'Revisiones_Tecnicas');
+    }
+
     function openRenovarModal(item: any) {
         setSelectedItem(item);
         const fechaActual = new Date(item.fecha_vencimiento);
@@ -86,10 +91,7 @@ export default function CITVPage() {
         }
 
         try {
-            const supabase = createClient();
-            await supabase.from('citv')
-                .update({ fecha_vencimiento: newFecha })
-                .eq('id', selectedItem.id);
+            await updateRow('citv', selectedItem.id, { fecha_vencimiento: newFecha });
             fetchData();
             setShowModal(false);
         } catch (error) {
@@ -113,11 +115,17 @@ export default function CITVPage() {
                     <h1 className="text-3xl font-bold text-gray-800">Revisiones Técnicas (CITV)</h1>
                     <p className="text-gray-500 mt-1">Control de Inspecciones Técnicas Vehiculares</p>
                 </div>
-                {usingDemo && (
-                    <span className="bg-amber-100 text-amber-800 px-3 py-2 rounded-lg text-sm font-medium">
-                        ⚠️ Modo Demo
-                    </span>
-                )}
+                <div className="flex items-center gap-3">
+                    <button onClick={handleExport} className="btn btn-outline">
+                        <Download size={18} />
+                        Exportar Excel
+                    </button>
+                    {usingDemo && (
+                        <span className="bg-amber-100 text-amber-800 px-3 py-2 rounded-lg text-sm font-medium">
+                            ⚠️ Modo Demo
+                        </span>
+                    )}
+                </div>
             </div>
 
             {/* Stats */}

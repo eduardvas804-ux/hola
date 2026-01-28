@@ -10,11 +10,15 @@ import {
     Filter,
     X,
     Save,
-    RefreshCw
+    RefreshCw,
+    Download,
+    CheckSquare,
+    Square
 } from 'lucide-react';
-import { createClient } from '@/lib/supabase';
+import { fetchTable, insertRow, updateRow, deleteRow, deleteRows } from '@/lib/api';
 import { Maquinaria, TipoMaquinaria, EstadoMaquinaria, ICONOS_MAQUINARIA, EMPRESAS } from '@/lib/types';
 import { formatNumber } from '@/lib/utils';
+import { exportToExcel, formatMaquinariaForExport } from '@/lib/export';
 
 const TIPOS: TipoMaquinaria[] = [
     'EXCAVADORA', 'MOTONIVELADORA', 'CARGADOR FRONTAL', 'RETROEXCAVADORA',
@@ -46,6 +50,7 @@ export default function MaquinariaPage() {
     const [filterEstado, setFilterEstado] = useState('');
     const [newHoras, setNewHoras] = useState('');
     const [usingDemo, setUsingDemo] = useState(true);
+    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
     const emptyForm = {
         item: 0,
@@ -75,15 +80,13 @@ export default function MaquinariaPage() {
 
     async function fetchData() {
         try {
-            const supabase = createClient();
-            const { data, error } = await supabase.from('maquinaria').select('*').order('item');
-
-            if (error || !data?.length) {
-                setUsingDemo(true);
-                setMaquinaria(DEMO_MAQUINARIA);
-            } else {
+            const data = await fetchTable<Maquinaria>('maquinaria', '&order=item');
+            if (data?.length > 0) {
                 setUsingDemo(false);
                 setMaquinaria(data);
+            } else {
+                setUsingDemo(true);
+                setMaquinaria(DEMO_MAQUINARIA);
             }
         } catch {
             setUsingDemo(true);
@@ -149,14 +152,11 @@ export default function MaquinariaPage() {
         }
 
         try {
-            const supabase = createClient();
-
             if (editingItem) {
-                await supabase.from('maquinaria').update(formData).eq('id', editingItem.id);
+                await updateRow('maquinaria', editingItem.id, formData);
             } else {
-                await supabase.from('maquinaria').insert([formData]);
+                await insertRow('maquinaria', formData);
             }
-
             fetchData();
             setShowModal(false);
         } catch (error) {
@@ -182,11 +182,10 @@ export default function MaquinariaPage() {
         }
 
         try {
-            const supabase = createClient();
-            await supabase.from('maquinaria')
-                .update({ horas_actuales: horas, updated_at: new Date().toISOString() })
-                .eq('id', editingItem.id);
-
+            await updateRow('maquinaria', editingItem.id, {
+                horas_actuales: horas,
+                updated_at: new Date().toISOString()
+            });
             fetchData();
             setShowHorasModal(false);
         } catch (error) {
@@ -199,15 +198,60 @@ export default function MaquinariaPage() {
 
         if (usingDemo) {
             setMaquinaria(prev => prev.filter(m => m.id !== id));
+            setSelectedItems(prev => { prev.delete(id); return new Set(prev); });
             return;
         }
 
         try {
-            const supabase = createClient();
-            await supabase.from('maquinaria').delete().eq('id', id);
+            await deleteRow('maquinaria', id);
+            setSelectedItems(prev => { prev.delete(id); return new Set(prev); });
             fetchData();
         } catch (error) {
             console.error('Error deleting:', error);
+        }
+    }
+
+    async function handleBulkDelete() {
+        if (selectedItems.size === 0) return;
+        if (!confirm(`¿Está seguro de eliminar ${selectedItems.size} equipo(s)?`)) return;
+
+        if (usingDemo) {
+            setMaquinaria(prev => prev.filter(m => !selectedItems.has(m.id)));
+            setSelectedItems(new Set());
+            return;
+        }
+
+        try {
+            await deleteRows('maquinaria', Array.from(selectedItems));
+            setSelectedItems(new Set());
+            fetchData();
+        } catch (error) {
+            console.error('Error deleting:', error);
+        }
+    }
+
+    function handleExport() {
+        const dataToExport = formatMaquinariaForExport(maquinaria);
+        exportToExcel(dataToExport, 'Maquinaria_' + new Date().toISOString().split('T')[0], 'Maquinaria');
+    }
+
+    function toggleSelectItem(id: string) {
+        setSelectedItems(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
+    }
+
+    function toggleSelectAll() {
+        if (selectedItems.size === filteredData.length) {
+            setSelectedItems(new Set());
+        } else {
+            setSelectedItems(new Set(filteredData.map(m => m.id)));
         }
     }
 
@@ -228,9 +272,19 @@ export default function MaquinariaPage() {
                     <p className="text-gray-500 mt-1">Administra tu flota de equipos pesados</p>
                 </div>
                 <div className="flex gap-3">
+                    {selectedItems.size > 0 && (
+                        <button onClick={handleBulkDelete} className="btn btn-outline text-red-600 border-red-300 hover:bg-red-50">
+                            <Trash2 size={18} />
+                            Eliminar ({selectedItems.size})
+                        </button>
+                    )}
+                    <button onClick={handleExport} className="btn btn-outline">
+                        <Download size={18} />
+                        Exportar
+                    </button>
                     {usingDemo && (
                         <span className="bg-amber-100 text-amber-800 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
-                            ⚠️ Modo Demo
+                            ⚠️ Demo
                         </span>
                     )}
                     <button onClick={openCreateModal} className="btn btn-primary">
@@ -291,6 +345,18 @@ export default function MaquinariaPage() {
                     <table className="data-table">
                         <thead>
                             <tr>
+                                <th className="w-10">
+                                    <button
+                                        onClick={toggleSelectAll}
+                                        className="p-1 hover:bg-gray-100 rounded"
+                                    >
+                                        {selectedItems.size === filteredData.length && filteredData.length > 0 ? (
+                                            <CheckSquare size={18} className="text-blue-600" />
+                                        ) : (
+                                            <Square size={18} className="text-gray-400" />
+                                        )}
+                                    </button>
+                                </th>
                                 <th>Item</th>
                                 <th>Código</th>
                                 <th>Tipo</th>
@@ -305,7 +371,19 @@ export default function MaquinariaPage() {
                         </thead>
                         <tbody>
                             {filteredData.map((m) => (
-                                <tr key={m.id}>
+                                <tr key={m.id} className={selectedItems.has(m.id) ? 'bg-blue-50' : ''}>
+                                    <td>
+                                        <button
+                                            onClick={() => toggleSelectItem(m.id)}
+                                            className="p-1 hover:bg-gray-100 rounded"
+                                        >
+                                            {selectedItems.has(m.id) ? (
+                                                <CheckSquare size={18} className="text-blue-600" />
+                                            ) : (
+                                                <Square size={18} className="text-gray-400" />
+                                            )}
+                                        </button>
+                                    </td>
                                     <td>{m.item}</td>
                                     <td className="font-semibold">{m.codigo}</td>
                                     <td>
@@ -328,7 +406,7 @@ export default function MaquinariaPage() {
                                         </button>
                                     </td>
                                     <td>
-                                        <span className={`badge badge-${m.estado.toLowerCase().replace(' ', '')}`}>
+                                        <span className={`badge badge-${m.estado.toLowerCase().replace('en ', '')}`}>
                                             {m.estado}
                                         </span>
                                     </td>

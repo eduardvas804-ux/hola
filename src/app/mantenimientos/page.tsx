@@ -8,11 +8,15 @@ import {
     Clock,
     Plus,
     Save,
-    X
+    X,
+    Download,
+    Edit,
+    Pencil
 } from 'lucide-react';
-import { createClient } from '@/lib/supabase';
+import { fetchTable, updateRow } from '@/lib/api';
 import { formatNumber, formatDate, calcularAlertaMantenimiento, getColorAlertaMantenimiento } from '@/lib/utils';
 import { EstadoAlerta, ICONOS_MAQUINARIA, TipoMaquinaria } from '@/lib/types';
+import { exportToExcel, formatMantenimientosForExport } from '@/lib/export';
 
 const DEMO_MANTENIMIENTOS = [
     { id: '1', codigo_maquina: 'EXC-01', tipo: 'EXCAVADORA', modelo: '320D', mantenimiento_ultimo: 15362, mantenimiento_proximo: 15612, hora_actual: 15612, diferencia_horas: 0, operador: 'JOSE ABANTO', tramo: 'CVP KM 25', tipo_mantenimiento: 'PREVENTIVO 250H', estado_alerta: 'VENCIDO' },
@@ -29,7 +33,9 @@ export default function MantenimientosPage() {
     const [mantenimientos, setMantenimientos] = useState(DEMO_MANTENIMIENTOS);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
     const [selectedItem, setSelectedItem] = useState<any>(null);
+    const [editForm, setEditForm] = useState<any>({});
     const [filterEstado, setFilterEstado] = useState<string>('');
     const [usingDemo, setUsingDemo] = useState(true);
 
@@ -39,14 +45,12 @@ export default function MantenimientosPage() {
 
     async function fetchData() {
         try {
-            const supabase = createClient();
-            const { data, error } = await supabase.from('mantenimientos').select('*').order('diferencia_horas');
-
-            if (error || !data?.length) {
-                setUsingDemo(true);
-            } else {
+            const data = await fetchTable<any>('mantenimientos', '&order=diferencia_horas');
+            if (data?.length > 0) {
                 setMantenimientos(data);
                 setUsingDemo(false);
+            } else {
+                setUsingDemo(true);
             }
         } catch {
             setUsingDemo(true);
@@ -71,6 +75,61 @@ export default function MantenimientosPage() {
         setShowModal(true);
     }
 
+    function openEditModal(item: any) {
+        setSelectedItem(item);
+        setEditForm({
+            hora_actual: item.hora_actual,
+            mantenimiento_proximo: item.mantenimiento_proximo,
+            operador: item.operador || '',
+            tramo: item.tramo || '',
+        });
+        setShowEditModal(true);
+    }
+
+    async function guardarEdicion() {
+        if (!selectedItem) return;
+
+        const horaActual = parseFloat(editForm.hora_actual) || selectedItem.hora_actual;
+        const mttoProximo = parseFloat(editForm.mantenimiento_proximo) || selectedItem.mantenimiento_proximo;
+        const diferencia = mttoProximo - horaActual;
+
+        let estadoAlerta = 'EN REGLA';
+        if (diferencia <= 0) estadoAlerta = 'VENCIDO';
+        else if (diferencia <= 50) estadoAlerta = 'URGENTE';
+        else if (diferencia <= 100) estadoAlerta = 'PROXIMO';
+
+        const actualizado = {
+            ...selectedItem,
+            hora_actual: horaActual,
+            mantenimiento_proximo: mttoProximo,
+            diferencia_horas: diferencia,
+            operador: editForm.operador,
+            tramo: editForm.tramo,
+            estado_alerta: estadoAlerta,
+        };
+
+        if (usingDemo) {
+            setMantenimientos(prev => prev.map(m =>
+                m.id === selectedItem.id ? actualizado : m
+            ));
+            setShowEditModal(false);
+            return;
+        }
+
+        try {
+            await updateRow('mantenimientos', selectedItem.id, actualizado);
+            fetchData();
+            setShowEditModal(false);
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+
+    function handleExport() {
+        const dataToExport = formatMantenimientosForExport(mantenimientos);
+        exportToExcel(dataToExport, 'Mantenimientos_' + new Date().toISOString().split('T')[0], 'Mantenimientos');
+    }
+
     async function registrarMantenimiento() {
         if (!selectedItem) return;
 
@@ -91,10 +150,7 @@ export default function MantenimientosPage() {
         }
 
         try {
-            const supabase = createClient();
-            await supabase.from('mantenimientos')
-                .update(nuevoMantenimiento)
-                .eq('id', selectedItem.id);
+            await updateRow('mantenimientos', selectedItem.id, nuevoMantenimiento);
             fetchData();
             setShowModal(false);
         } catch (error) {
@@ -118,11 +174,17 @@ export default function MantenimientosPage() {
                     <h1 className="text-3xl font-bold text-gray-800">Control de Mantenimientos</h1>
                     <p className="text-gray-500 mt-1">Monitorea el estado de mantenimiento de tu flota</p>
                 </div>
-                {usingDemo && (
-                    <span className="bg-amber-100 text-amber-800 px-3 py-2 rounded-lg text-sm font-medium">
-                        ⚠️ Modo Demo
-                    </span>
-                )}
+                <div className="flex items-center gap-3">
+                    <button onClick={handleExport} className="btn btn-outline">
+                        <Download size={18} />
+                        Exportar Excel
+                    </button>
+                    {usingDemo && (
+                        <span className="bg-amber-100 text-amber-800 px-3 py-2 rounded-lg text-sm font-medium">
+                            ⚠️ Modo Demo
+                        </span>
+                    )}
+                </div>
             </div>
 
             {/* Stats Cards */}
@@ -248,13 +310,22 @@ export default function MantenimientosPage() {
                                         </span>
                                     </td>
                                     <td>
-                                        <button
-                                            onClick={() => openRegisterModal(m)}
-                                            className="btn btn-secondary py-2 px-3 text-sm"
-                                        >
-                                            <Wrench size={16} />
-                                            Registrar Mtto
-                                        </button>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => openEditModal(m)}
+                                                className="btn btn-outline py-2 px-3 text-sm"
+                                                title="Editar"
+                                            >
+                                                <Pencil size={16} />
+                                            </button>
+                                            <button
+                                                onClick={() => openRegisterModal(m)}
+                                                className="btn btn-secondary py-2 px-3 text-sm"
+                                            >
+                                                <Wrench size={16} />
+                                                Registrar Mtto
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -317,6 +388,78 @@ export default function MantenimientosPage() {
                             <button onClick={registrarMantenimiento} className="btn btn-secondary">
                                 <Save size={18} />
                                 Confirmar Mantenimiento
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Editar Mantenimiento */}
+            {showEditModal && selectedItem && (
+                <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+                    <div className="modal-content max-w-lg" onClick={e => e.stopPropagation()}>
+                        <div className="p-6 border-b border-gray-100">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-xl font-bold text-gray-800">Editar Mantenimiento</h2>
+                                <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600">
+                                    <X size={24} />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="text-center mb-4">
+                                <p className="font-bold text-lg text-gray-800">{selectedItem.codigo_maquina}</p>
+                                <p className="text-gray-500">{selectedItem.tipo} - {selectedItem.modelo}</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Hora Actual</label>
+                                    <input
+                                        type="number"
+                                        value={editForm.hora_actual}
+                                        onChange={e => setEditForm({ ...editForm, hora_actual: e.target.value })}
+                                        className="input w-full"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Mtto Próximo</label>
+                                    <input
+                                        type="number"
+                                        value={editForm.mantenimiento_proximo}
+                                        onChange={e => setEditForm({ ...editForm, mantenimiento_proximo: e.target.value })}
+                                        className="input w-full"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Operador</label>
+                                <input
+                                    type="text"
+                                    value={editForm.operador}
+                                    onChange={e => setEditForm({ ...editForm, operador: e.target.value })}
+                                    className="input w-full"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Tramo/Ubicación</label>
+                                <input
+                                    type="text"
+                                    value={editForm.tramo}
+                                    onChange={e => setEditForm({ ...editForm, tramo: e.target.value })}
+                                    className="input w-full"
+                                />
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+                            <button onClick={() => setShowEditModal(false)} className="btn btn-outline">
+                                Cancelar
+                            </button>
+                            <button onClick={guardarEdicion} className="btn btn-primary">
+                                <Save size={18} />
+                                Guardar Cambios
                             </button>
                         </div>
                     </div>

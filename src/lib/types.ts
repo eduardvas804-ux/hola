@@ -1,6 +1,6 @@
 // Tipos de datos para MAQUINARIA PRO
 
-export type TipoMaquinaria = 
+export type TipoMaquinaria =
   | 'MOTONIVELADORA'
   | 'EXCAVADORA'
   | 'RETROEXCAVADORA'
@@ -11,7 +11,7 @@ export type TipoMaquinaria =
   | 'CISTERNA DE COMBUSTIBLE'
   | 'CAMIONETA';
 
-export type EstadoMaquinaria = 
+export type EstadoMaquinaria =
   | 'OPERATIVO'
   | 'EN MANTENIMIENTO'
   | 'INOPERATIVO'
@@ -19,7 +19,7 @@ export type EstadoMaquinaria =
 
 export type EstadoAlerta = 'URGENTE' | 'PROXIMO' | 'EN REGLA' | 'VENCIDO';
 
-export type TipoMantenimiento = 
+export type TipoMantenimiento =
   | 'PREVENTIVO 250H'
   | 'PREVENTIVO 500H'
   | 'PREVENTIVO 1000H'
@@ -128,3 +128,14 @@ export const EMPRESAS = [
   'JOMEX CONSTRUCTORA S.A.C',
   'JORGE LUIS VASQUEZ CUSMA',
 ];
+
+export type Role = 'admin' | 'supervisor' | 'operador' | 'visualizador';
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  nombre_completo: string;
+  rol: Role;
+  estado: boolean;
+  created_at?: string;
+}

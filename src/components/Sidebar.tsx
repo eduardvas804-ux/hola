@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/components/auth-provider';
+import { useSidebar } from '@/components/sidebar-context';
 import {
     LayoutDashboard,
     Truck,
@@ -13,8 +15,10 @@ import {
     Settings,
     ChevronLeft,
     ChevronRight,
+    LogOut,
+    Users,
+    Shield
 } from 'lucide-react';
-import { useState } from 'react';
 
 const menuItems = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -28,7 +32,8 @@ const menuItems = [
 
 export default function Sidebar() {
     const pathname = usePathname();
-    const [collapsed, setCollapsed] = useState(false);
+    const { collapsed, toggleCollapsed } = useSidebar();
+    const { profile, isAdmin, signOut } = useAuth();
 
     return (
         <aside
@@ -73,28 +78,66 @@ export default function Sidebar() {
                             </li>
                         );
                     })}
+
+                    {/* Admin Section */}
+                    {isAdmin && (
+                        <>
+                            <div className="my-4 border-t border-white/10 mx-4"></div>
+                            <li>
+                                <Link
+                                    href="/admin/usuarios"
+                                    className={`sidebar-link flex items-center gap-3 px-4 py-3 text-white/80 hover:text-white ${pathname === '/admin/usuarios' ? 'active text-white' : ''
+                                        }`}
+                                    title={collapsed ? 'Usuarios' : undefined}
+                                >
+                                    <Users size={22} className="text-amber-400" />
+                                    {!collapsed && (
+                                        <span className="font-medium">Gestión Usuarios</span>
+                                    )}
+                                </Link>
+                            </li>
+                        </>
+                    )}
                 </ul>
             </nav>
 
-            {/* Footer */}
-            <div className="p-4 border-t border-white/10">
-                <button
-                    onClick={() => setCollapsed(!collapsed)}
-                    className="w-full flex items-center justify-center gap-2 py-2 text-white/60 hover:text-white transition-colors rounded-lg hover:bg-white/10"
-                >
-                    {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-                    {!collapsed && <span className="text-sm">Colapsar</span>}
-                </button>
-            </div>
+            {/* User Profile & Footer */}
+            <div className="border-t border-white/10 bg-black/20">
+                {/* Profile Info */}
+                {!collapsed && profile && (
+                    <div className="p-4 flex items-center gap-3 border-b border-white/5">
+                        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
+                            {profile.nombre_completo.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                            <p className="text-white text-sm font-medium truncate">{profile.nombre_completo}</p>
+                            <p className="text-blue-200 text-xs flex items-center gap-1 capitalize">
+                                <Shield size={10} />
+                                {profile.rol}
+                            </p>
+                        </div>
+                    </div>
+                )}
 
-            {/* Company Info */}
-            {!collapsed && (
-                <div className="p-4 bg-black/20">
-                    <p className="text-blue-200 text-xs text-center">
-                        Grupo Vásquez © 2026
-                    </p>
+                {/* Actions */}
+                <div className="p-2 flex gap-1 justify-between">
+                    <button
+                        onClick={toggleCollapsed}
+                        className="flex-1 flex items-center justify-center py-2 text-white/60 hover:text-white transition-colors rounded-lg hover:bg-white/10"
+                        title={collapsed ? "Expandir" : "Colapsar"}
+                    >
+                        {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+                    </button>
+
+                    <button
+                        onClick={signOut}
+                        className="flex-1 flex items-center justify-center py-2 text-red-300 hover:text-red-100 transition-colors rounded-lg hover:bg-red-500/20"
+                        title="Cerrar Sesión"
+                    >
+                        <LogOut size={18} />
+                    </button>
                 </div>
-            )}
+            </div>
         </aside>
     );
 }

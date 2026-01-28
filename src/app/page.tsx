@@ -70,44 +70,50 @@ export default function Dashboard() {
   const [mantenimientos, setMantenimientos] = useState<any[]>(DEMO_DATA.mantenimientos);
   const [soat, setSoat] = useState<any[]>(DEMO_DATA.soat);
   const [citv, setCitv] = useState<any[]>(DEMO_DATA.citv);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [usingDemo, setUsingDemo] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function fetchData() {
+      const url = 'https://slotbyxzdyraowhbcrrh.supabase.co/rest/v1';
+      const apiKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      const headers = { 'apikey': apiKey, 'Authorization': `Bearer ${apiKey}` };
+
       try {
-        const supabase = createClient();
+        // Cargar todos los datos en paralelo
+        const [maqRes, mttoRes, soatRes, citvRes] = await Promise.all([
+          fetch(`${url}/maquinaria?select=*&order=item`, { headers }),
+          fetch(`${url}/mantenimientos?select=*`, { headers }),
+          fetch(`${url}/soat?select=*`, { headers }),
+          fetch(`${url}/citv?select=*`, { headers })
+        ]);
 
-        // Verificar si hay datos
-        const { data: maqData, error: maqError } = await supabase
-          .from('maquinaria')
-          .select('*');
+        if (cancelled) return;
 
-        if (maqError || !maqData?.length) {
-          console.log('Usando datos de demostración');
-          setUsingDemo(true);
-        } else {
-          setMaquinaria(maqData);
-          setUsingDemo(false);
-
-          // Cargar resto de datos
-          const { data: mttoData } = await supabase.from('mantenimientos').select('*');
-          const { data: soatData } = await supabase.from('soat').select('*');
-          const { data: citvData } = await supabase.from('citv').select('*');
-
-          if (mttoData) setMantenimientos(mttoData);
-          if (soatData) setSoat(soatData);
-          if (citvData) setCitv(citvData);
+        if (maqRes.ok) {
+          const data = await maqRes.json();
+          if (data?.length > 0) {
+            setMaquinaria(data);
+            setUsingDemo(false);
+            console.log('✅ Datos cargados:', data.length, 'equipos');
+          }
         }
-      } catch (error) {
-        console.log('Error conectando a Supabase, usando datos demo');
-        setUsingDemo(true);
+
+        if (mttoRes.ok) setMantenimientos(await mttoRes.json());
+        if (soatRes.ok) setSoat(await soatRes.json());
+        if (citvRes.ok) setCitv(await citvRes.json());
+
+      } catch (err) {
+        console.error('Error:', err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     fetchData();
+    return () => { cancelled = true; };
   }, []);
 
   // Calcular estadísticas
@@ -458,7 +464,7 @@ export default function Dashboard() {
                   <td>{m.marca}</td>
                   <td>{formatNumber(m.horas_actuales)}</td>
                   <td>
-                    <span className={`badge badge-${m.estado.toLowerCase().replace(' ', '')}`}>
+                    <span className={`badge badge-${m.estado.toLowerCase().replace('en ', '')}`}>
                       {m.estado}
                     </span>
                   </td>

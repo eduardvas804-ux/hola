@@ -1,16 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-    Filter,
-    Search,
-    ShoppingCart,
-    Download,
-    Printer,
-    Check
-} from 'lucide-react';
-import { createClient } from '@/lib/supabase';
-import { ICONOS_MAQUINARIA, TipoMaquinaria } from '@/lib/types';
+import { fetchTable } from '@/lib/api';
+import { ICONOS_MAQUINARIA } from '@/lib/types';
+import { Search, Filter, Download, ShoppingCart, Check, ExternalLink, Printer } from 'lucide-react';
+import Link from 'next/link';
+import { exportToExcel, formatFiltrosForExport } from '@/lib/export';
 
 const DEMO_FILTROS = [
     { id: '1', maquinaria_codigo: 'EXC-01', maquinaria_descripcion: 'EXCAVADORA 320D (FAL10955)', filtro_separador_1: '438-5386', cantidad_sep_1: 1, filtro_combustible_1: '1R-0751', cantidad_comb_1: 2, filtro_aceite_motor: '1R-0739', cantidad_aceite: 1, filtro_aire_primario: '131-8822', cantidad_aire_prim: 1, filtro_aire_secundario: '131-8821', cantidad_aire_sec: 1 },
@@ -35,15 +30,13 @@ export default function FiltrosPage() {
 
     async function fetchData() {
         try {
-            const supabase = createClient();
-            const { data, error } = await supabase.from('filtros').select('*');
-
-            if (error || !data?.length) {
-                setUsingDemo(true);
-                setFiltros(DEMO_FILTROS);
-            } else {
+            const data = await fetchTable<any>('filtros');
+            if (data?.length > 0) {
                 setUsingDemo(false);
                 setFiltros(data);
+            } else {
+                setUsingDemo(true);
+                setFiltros(DEMO_FILTROS);
             }
         } catch {
             setUsingDemo(true);
@@ -53,10 +46,20 @@ export default function FiltrosPage() {
         }
     }
 
-    const filteredFiltros = filtros.filter(f =>
-        f.maquinaria_codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        f.maquinaria_descripcion.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredFiltros = filtros.filter(f => {
+        const search = searchTerm.toLowerCase();
+        return (
+            f.maquinaria_codigo.toLowerCase().includes(search) ||
+            f.maquinaria_descripcion.toLowerCase().includes(search) ||
+            (f.filtro_separador_1 || '').toLowerCase().includes(search) ||
+            (f.filtro_separador_2 || '').toLowerCase().includes(search) ||
+            (f.filtro_combustible_1 || '').toLowerCase().includes(search) ||
+            (f.filtro_combustible_2 || '').toLowerCase().includes(search) ||
+            (f.filtro_aceite_motor || '').toLowerCase().includes(search) ||
+            (f.filtro_aire_primario || '').toLowerCase().includes(search) ||
+            (f.filtro_aire_secundario || '').toLowerCase().includes(search)
+        );
+    });
 
     function toggleSelect(id: string) {
         setSelectedItems(prev =>
@@ -74,6 +77,20 @@ export default function FiltrosPage() {
         }
     }
 
+    function handleExport() {
+        const dataToExport = formatFiltrosForExport(filtros);
+        exportToExcel(dataToExport, 'Filtros_' + new Date().toISOString().split('T')[0], 'Filtros');
+    }
+
+    function handleExportListaCompras() {
+        const lista = generarListaCompras();
+        exportToExcel(lista.map(item => ({
+            'CÓDIGO FILTRO': item.codigo,
+            'DESCRIPCIÓN': item.descripcion,
+            'CANTIDAD': item.cantidad
+        })), 'Lista_Compras_' + new Date().toISOString().split('T')[0], 'Lista_Compras');
+    }
+
     // Generar lista de compras consolidada
     function generarListaCompras() {
         const listaConsolidada: Record<string, { codigo: string; descripcion: string; cantidad: number }> = {};
@@ -81,41 +98,22 @@ export default function FiltrosPage() {
         const selectedFiltros = filtros.filter(f => selectedItems.includes(f.id));
 
         selectedFiltros.forEach(f => {
-            // Separador
-            if (f.filtro_separador_1) {
-                if (!listaConsolidada[f.filtro_separador_1]) {
-                    listaConsolidada[f.filtro_separador_1] = { codigo: f.filtro_separador_1, descripcion: 'Filtro Separador', cantidad: 0 };
+            // Helper para agregar filtro
+            const addFilter = (codigo: string, desc: string, cant: number) => {
+                if (!codigo) return;
+                if (!listaConsolidada[codigo]) {
+                    listaConsolidada[codigo] = { codigo, descripcion: desc, cantidad: 0 };
                 }
-                listaConsolidada[f.filtro_separador_1].cantidad += f.cantidad_sep_1 || 1;
-            }
-            // Combustible
-            if (f.filtro_combustible_1) {
-                if (!listaConsolidada[f.filtro_combustible_1]) {
-                    listaConsolidada[f.filtro_combustible_1] = { codigo: f.filtro_combustible_1, descripcion: 'Filtro Combustible', cantidad: 0 };
-                }
-                listaConsolidada[f.filtro_combustible_1].cantidad += f.cantidad_comb_1 || 1;
-            }
-            // Aceite
-            if (f.filtro_aceite_motor) {
-                if (!listaConsolidada[f.filtro_aceite_motor]) {
-                    listaConsolidada[f.filtro_aceite_motor] = { codigo: f.filtro_aceite_motor, descripcion: 'Filtro Aceite Motor', cantidad: 0 };
-                }
-                listaConsolidada[f.filtro_aceite_motor].cantidad += f.cantidad_aceite || 1;
-            }
-            // Aire Primario
-            if (f.filtro_aire_primario) {
-                if (!listaConsolidada[f.filtro_aire_primario]) {
-                    listaConsolidada[f.filtro_aire_primario] = { codigo: f.filtro_aire_primario, descripcion: 'Filtro Aire Primario', cantidad: 0 };
-                }
-                listaConsolidada[f.filtro_aire_primario].cantidad += f.cantidad_aire_prim || 1;
-            }
-            // Aire Secundario
-            if (f.filtro_aire_secundario) {
-                if (!listaConsolidada[f.filtro_aire_secundario]) {
-                    listaConsolidada[f.filtro_aire_secundario] = { codigo: f.filtro_aire_secundario, descripcion: 'Filtro Aire Secundario', cantidad: 0 };
-                }
-                listaConsolidada[f.filtro_aire_secundario].cantidad += f.cantidad_aire_sec || 1;
-            }
+                listaConsolidada[codigo].cantidad += cant || 1;
+            };
+
+            addFilter(f.filtro_separador_1, 'Filtro Separador', f.cantidad_sep_1);
+            addFilter(f.filtro_separador_2, 'Filtro Separador 2', f.cantidad_sep_2);
+            addFilter(f.filtro_combustible_1, 'Filtro Combustible', f.cantidad_comb_1);
+            addFilter(f.filtro_combustible_2, 'Filtro Combustible 2', f.cantidad_comb_2);
+            addFilter(f.filtro_aceite_motor, 'Filtro Aceite Motor', f.cantidad_aceite);
+            addFilter(f.filtro_aire_primario, 'Filtro Aire Primario', f.cantidad_aire_prim);
+            addFilter(f.filtro_aire_secundario, 'Filtro Aire Secundario', f.cantidad_aire_sec);
         });
 
         return Object.values(listaConsolidada);
@@ -140,9 +138,13 @@ export default function FiltrosPage() {
                     <p className="text-gray-500 mt-1">Catálogo de filtros y generador de lista de compras</p>
                 </div>
                 <div className="flex gap-3">
+                    <button onClick={handleExport} className="btn btn-outline">
+                        <Download size={18} />
+                        Exportar
+                    </button>
                     {usingDemo && (
                         <span className="bg-amber-100 text-amber-800 px-3 py-2 rounded-lg text-sm font-medium">
-                            ⚠️ Modo Demo
+                            ⚠️ Demo
                         </span>
                     )}
                     {selectedItems.length > 0 && (
@@ -165,7 +167,7 @@ export default function FiltrosPage() {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                             <input
                                 type="text"
-                                placeholder="Buscar por código o descripción..."
+                                placeholder="Buscar por código de máquina o código de filtro..."
                                 className="input pl-10"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -188,8 +190,8 @@ export default function FiltrosPage() {
                     <div
                         key={f.id}
                         className={`card p-5 cursor-pointer transition-all ${selectedItems.includes(f.id)
-                                ? 'ring-2 ring-blue-500 bg-blue-50'
-                                : 'hover:shadow-lg'
+                            ? 'ring-2 ring-blue-500 bg-blue-50'
+                            : 'hover:shadow-lg'
                             }`}
                         onClick={() => toggleSelect(f.id)}
                     >
@@ -201,22 +203,43 @@ export default function FiltrosPage() {
                                 </div>
                                 <div>
                                     <p className="font-bold text-gray-800">{f.maquinaria_codigo}</p>
-                                    <p className="text-sm text-gray-500">{f.maquinaria_descripcion}</p>
+                                    <Link
+                                        href={`/maquinaria?search=${f.maquinaria_codigo}`}
+                                        className="text-sm text-blue-500 hover:text-blue-700 hover:underline flex items-center gap-1"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        {f.maquinaria_descripcion}
+                                        <ExternalLink size={12} />
+                                    </Link>
                                 </div>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3 text-sm">
                             <div className="bg-gray-50 rounded-lg p-3">
-                                <p className="text-gray-500 text-xs mb-1">Separador</p>
+                                <p className="text-gray-500 text-xs mb-1">Separador 1</p>
                                 <p className="font-mono font-medium">{f.filtro_separador_1 || '-'}</p>
                                 <p className="text-xs text-gray-400">Cant: {f.cantidad_sep_1 || 0}</p>
                             </div>
+                            {f.filtro_separador_2 && (
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                    <p className="text-gray-500 text-xs mb-1">Separador 2</p>
+                                    <p className="font-mono font-medium">{f.filtro_separador_2}</p>
+                                    <p className="text-xs text-gray-400">Cant: {f.cantidad_sep_2 || 0}</p>
+                                </div>
+                            )}
                             <div className="bg-gray-50 rounded-lg p-3">
-                                <p className="text-gray-500 text-xs mb-1">Combustible</p>
+                                <p className="text-gray-500 text-xs mb-1">Combustible 1</p>
                                 <p className="font-mono font-medium">{f.filtro_combustible_1 || '-'}</p>
                                 <p className="text-xs text-gray-400">Cant: {f.cantidad_comb_1 || 0}</p>
                             </div>
+                            {f.filtro_combustible_2 && (
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                    <p className="text-gray-500 text-xs mb-1">Combustible 2</p>
+                                    <p className="font-mono font-medium">{f.filtro_combustible_2}</p>
+                                    <p className="text-xs text-gray-400">Cant: {f.cantidad_comb_2 || 0}</p>
+                                </div>
+                            )}
                             <div className="bg-gray-50 rounded-lg p-3">
                                 <p className="text-gray-500 text-xs mb-1">Aceite Motor</p>
                                 <p className="font-mono font-medium">{f.filtro_aceite_motor || '-'}</p>
@@ -227,6 +250,13 @@ export default function FiltrosPage() {
                                 <p className="font-mono font-medium">{f.filtro_aire_primario || '-'}</p>
                                 <p className="text-xs text-gray-400">Cant: {f.cantidad_aire_prim || 0}</p>
                             </div>
+                            {f.filtro_aire_secundario && (
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                    <p className="text-gray-500 text-xs mb-1">Aire Secundario</p>
+                                    <p className="font-mono font-medium">{f.filtro_aire_secundario}</p>
+                                    <p className="text-xs text-gray-400">Cant: {f.cantidad_aire_sec || 0}</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 ))}
@@ -277,7 +307,7 @@ export default function FiltrosPage() {
                                 Total: <span className="font-bold text-gray-800">{listaCompras.length} tipos de filtros</span>
                             </p>
                             <div className="flex gap-3">
-                                <button className="btn btn-outline">
+                                <button onClick={handleExportListaCompras} className="btn btn-outline">
                                     <Download size={18} />
                                     Exportar Excel
                                 </button>
