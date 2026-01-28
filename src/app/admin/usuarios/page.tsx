@@ -38,6 +38,11 @@ export default function UsuariosPage() {
     async function fetchUsers() {
         try {
             const supabase = createClient();
+            if (!supabase) {
+                setLoading(false);
+                return;
+            }
+
             const { data, error } = await supabase
                 .from('perfiles')
                 .select('*')
@@ -55,6 +60,10 @@ export default function UsuariosPage() {
     async function handleSaveUser() {
         try {
             const supabase = createClient();
+            if (!supabase) {
+                alert('Error: Supabase no está configurado');
+                return;
+            }
 
             if (editingUser) {
                 // Actualizar perfil existente

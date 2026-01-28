@@ -444,6 +444,11 @@ export default function ImportarPage() {
 
         try {
             const supabase = createClient();
+            if (!supabase) {
+                alert('Error: Supabase no está configurado');
+                setImporting(false);
+                return;
+            }
 
             let mappedData: any[];
 

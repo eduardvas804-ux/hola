@@ -20,6 +20,10 @@ export default function LoginPage() {
 
         try {
             const supabase = createClient();
+            if (!supabase) {
+                setError('Sistema no configurado. Contacte al administrador.');
+                return;
+            }
 
             const { error } = await supabase.auth.signInWithPassword({
                 email,
