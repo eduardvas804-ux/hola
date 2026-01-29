@@ -83,26 +83,43 @@ export async function registrarCambio(
     datosNuevos: any,
     usuario: { id: string; email: string; nombre: string }
 ): Promise<boolean> {
-    if (!isConfigured()) return false;
+    console.log('📝 registrarCambio llamado:', { tabla, accion, registroId });
+
+    if (!isConfigured()) {
+        console.log('❌ Supabase no configurado');
+        return false;
+    }
 
     try {
+        const body = {
+            tabla,
+            accion,
+            registro_id: registroId,
+            datos_anteriores: datosAnteriores,
+            datos_nuevos: datosNuevos,
+            usuario_id: usuario.id,
+            usuario_email: usuario.email,
+            usuario_nombre: usuario.nombre
+        };
+
+        console.log('📤 Enviando a historial:', body);
+
         const response = await fetch(`${SUPABASE_URL}/historial`, {
             method: 'POST',
             headers: getHeaders(),
-            body: JSON.stringify({
-                tabla,
-                accion,
-                registro_id: registroId,
-                datos_anteriores: datosAnteriores,
-                datos_nuevos: datosNuevos,
-                usuario_id: usuario.id,
-                usuario_email: usuario.email,
-                usuario_nombre: usuario.nombre
-            })
+            body: JSON.stringify(body)
         });
+
+        console.log('📥 Respuesta:', response.status, response.statusText);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ Error en historial:', errorText);
+        }
+
         return response.ok;
     } catch (error) {
-        console.error('Error registrando historial:', error);
+        console.error('❌ Error registrando historial:', error);
         return false;
     }
 }

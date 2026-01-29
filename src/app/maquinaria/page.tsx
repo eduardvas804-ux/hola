@@ -155,6 +155,8 @@ export default function MaquinariaPage() {
     }
 
     async function handleSave() {
+        console.log('💾 handleSave - usingDemo:', usingDemo);
+
         const usuarioInfo = {
             id: user?.id || 'demo',
             email: user?.email || 'demo@demo.com',
@@ -162,6 +164,7 @@ export default function MaquinariaPage() {
         };
 
         if (usingDemo) {
+            console.log('⚠️ En modo DEMO - cambios no se guardan en DB');
             // Demo mode - update local state
             if (editingItem) {
                 setMaquinaria(prev => prev.map(m => m.id === editingItem.id ? { ...formData, id: editingItem.id, updated_at: new Date().toISOString() } : m));
@@ -172,6 +175,8 @@ export default function MaquinariaPage() {
             setShowModal(false);
             return;
         }
+
+        console.log('✅ Guardando en Supabase...');
 
         try {
             if (editingItem) {
