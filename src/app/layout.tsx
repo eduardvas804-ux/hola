@@ -12,6 +12,7 @@ export const metadata: Metadata = {
 import AuthProvider from "@/components/auth-provider";
 import AppShell from "@/components/app-shell";
 import { SidebarProvider } from "@/components/sidebar-context";
+import Asistente from "@/components/Asistente";
 
 export default function RootLayout({
   children,
@@ -26,6 +27,7 @@ export default function RootLayout({
             <AppShell>
               {children}
             </AppShell>
+            <Asistente />
           </SidebarProvider>
         </AuthProvider>
       </body>

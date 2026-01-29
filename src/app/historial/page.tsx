@@ -20,7 +20,7 @@ import {
 interface HistorialItem {
     id: string;
     tabla: string;
-    accion: 'INSERT' | 'UPDATE' | 'DELETE';
+    accion: 'CREATE' | 'UPDATE' | 'DELETE';
     registro_id: string;
     datos_anteriores: any;
     datos_nuevos: any;
@@ -58,7 +58,7 @@ const DEMO_HISTORIAL: HistorialItem[] = [
     {
         id: '3',
         tabla: 'soat',
-        accion: 'INSERT',
+        accion: 'CREATE',
         registro_id: 'VOL-02',
         datos_anteriores: null,
         datos_nuevos: { codigo: 'VOL-02', fecha_vencimiento: '2026-06-15', aseguradora: 'RIMAC' },
@@ -82,7 +82,7 @@ const DEMO_HISTORIAL: HistorialItem[] = [
 ];
 
 const TABLAS = ['Todas', 'maquinaria', 'mantenimientos', 'soat', 'citv', 'filtros', 'perfiles'];
-const ACCIONES = ['Todas', 'INSERT', 'UPDATE', 'DELETE'];
+const ACCIONES = ['Todas', 'CREATE', 'UPDATE', 'DELETE'];
 
 export default function HistorialPage() {
     const [historial, setHistorial] = useState<HistorialItem[]>(DEMO_HISTORIAL);
@@ -107,7 +107,7 @@ export default function HistorialPage() {
             }
 
             const { data, error } = await supabase
-                .from('historial_cambios')
+                .from('historial')
                 .select('*')
                 .order('created_at', { ascending: false })
                 .limit(100);
@@ -177,7 +177,7 @@ export default function HistorialPage() {
 
     function getAccionColor(accion: string) {
         switch (accion) {
-            case 'INSERT': return 'bg-green-100 text-green-800';
+            case 'CREATE': return 'bg-green-100 text-green-800';
             case 'UPDATE': return 'bg-blue-100 text-blue-800';
             case 'DELETE': return 'bg-red-100 text-red-800';
             default: return 'bg-gray-100 text-gray-800';
@@ -186,7 +186,7 @@ export default function HistorialPage() {
 
     function getAccionLabel(accion: string) {
         switch (accion) {
-            case 'INSERT': return 'Creación';
+            case 'CREATE': return 'Creación';
             case 'UPDATE': return 'Actualización';
             case 'DELETE': return 'Eliminación';
             default: return accion;

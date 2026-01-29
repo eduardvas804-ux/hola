@@ -77,7 +77,7 @@ export async function deleteRows(table: string, ids: string[]): Promise<boolean>
 // Registrar cambio en historial
 export async function registrarCambio(
     tabla: string,
-    accion: 'INSERT' | 'UPDATE' | 'DELETE',
+    accion: 'CREATE' | 'UPDATE' | 'DELETE',
     registroId: string,
     datosAnteriores: any,
     datosNuevos: any,
@@ -86,7 +86,7 @@ export async function registrarCambio(
     if (!isConfigured()) return false;
 
     try {
-        const response = await fetch(`${SUPABASE_URL}/historial_cambios`, {
+        const response = await fetch(`${SUPABASE_URL}/historial`, {
             method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({

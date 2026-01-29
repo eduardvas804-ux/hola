@@ -14,13 +14,14 @@ import {
     ChevronDown,
     Search
 } from 'lucide-react';
-import { fetchTable, updateRow } from '@/lib/api';
+import { fetchTable, updateRow, registrarCambio } from '@/lib/api';
 import { formatDate, calcularAlertaDocumento } from '@/lib/utils';
 import { exportToExcel, formatSoatForExport } from '@/lib/export';
 import { useAuth } from '@/components/auth-provider';
 import { puedeVer, puedeEditar, puedeExportar } from '@/lib/permisos';
 import { Role } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import { getSeriePorCodigo, getCodigoConSerie } from '@/lib/equipos-data';
 
 const DEMO_SOAT = [
     { id: '1', codigo: 'VOL-01', tipo: 'VOLQUETE', modelo: 'ACTROS 3336K', placa_serie: 'WDB9302', empresa: 'JLMX VASQUEZ EJECUTORES E.I.R.L', fecha_vencimiento: '2026-02-10' },
@@ -40,7 +41,7 @@ export default function SOATPage() {
     const [filterCodigo, setFilterCodigo] = useState<string>('');
     const [showCodigoFilter, setShowCodigoFilter] = useState(false);
     const [searchCodigo, setSearchCodigo] = useState('');
-    const { profile } = useAuth();
+    const { profile, user } = useAuth();
     const router = useRouter();
     const userRole = profile?.rol as Role;
 
@@ -106,6 +107,12 @@ export default function SOATPage() {
     }
 
     async function renovarSoat() {
+        const usuarioInfo = {
+            id: user?.id || 'demo',
+            email: user?.email || 'demo@demo.com',
+            nombre: profile?.nombre_completo || 'Usuario Demo'
+        };
+
         if (usingDemo) {
             setSoat(prev => prev.map(s =>
                 s.id === selectedItem.id
@@ -117,7 +124,12 @@ export default function SOATPage() {
         }
 
         try {
+            const datosAnteriores = { fecha_vencimiento: selectedItem.fecha_vencimiento };
+            const datosNuevos = { fecha_vencimiento: newFecha };
+
             await updateRow('soat', selectedItem.id, { fecha_vencimiento: newFecha });
+            // Registrar renovación en historial
+            await registrarCambio('soat', 'UPDATE', selectedItem.codigo, datosAnteriores, datosNuevos, usuarioInfo);
             fetchData();
             setShowModal(false);
         } catch (error) {
@@ -210,15 +222,15 @@ export default function SOATPage() {
             {/* Filtro desplegable estilo Excel */}
             <div className="card p-4">
                 <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="relative flex-1 sm:max-w-xs">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Filtrar por Código</label>
+                    <div className="relative sm:w-72">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Equipo</label>
                         <div className="relative">
                             <button
                                 onClick={() => setShowCodigoFilter(!showCodigoFilter)}
                                 className="w-full input flex items-center justify-between text-left"
                             >
                                 <span className={filterCodigo ? 'text-gray-800' : 'text-gray-400'}>
-                                    {filterCodigo || 'Seleccionar código...'}
+                                    {filterCodigo ? getCodigoConSerie(filterCodigo) : 'Todos los equipos...'}
                                 </span>
                                 <ChevronDown
                                     size={18}
@@ -227,13 +239,13 @@ export default function SOATPage() {
                             </button>
 
                             {showCodigoFilter && (
-                                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-72 overflow-hidden">
+                                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-hidden">
                                     <div className="p-2 border-b sticky top-0 bg-white">
                                         <div className="relative">
                                             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                             <input
                                                 type="text"
-                                                placeholder="Buscar código..."
+                                                placeholder="Buscar código o serie..."
                                                 className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                                 value={searchCodigo}
                                                 onChange={(e) => setSearchCodigo(e.target.value)}
@@ -241,7 +253,7 @@ export default function SOATPage() {
                                             />
                                         </div>
                                     </div>
-                                    <div className="overflow-y-auto max-h-52">
+                                    <div className="overflow-y-auto max-h-60">
                                         <button
                                             onClick={() => { setFilterCodigo(''); setShowCodigoFilter(false); setSearchCodigo(''); }}
                                             className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
@@ -251,7 +263,11 @@ export default function SOATPage() {
                                             Todos
                                         </button>
                                         {codigosUnicos
-                                            .filter(c => c.toLowerCase().includes(searchCodigo.toLowerCase()))
+                                            .filter(c => {
+                                                const serie = getSeriePorCodigo(c).toLowerCase();
+                                                const term = searchCodigo.toLowerCase();
+                                                return c.toLowerCase().includes(term) || serie.includes(term);
+                                            })
                                             .map(codigo => (
                                                 <button
                                                     key={codigo}
@@ -260,7 +276,8 @@ export default function SOATPage() {
                                                         filterCodigo === codigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                                                     }`}
                                                 >
-                                                    {codigo}
+                                                    <span className="font-medium">{codigo}</span>
+                                                    <span className="text-gray-400 ml-1">({getSeriePorCodigo(codigo)})</span>
                                                 </button>
                                             ))}
                                     </div>

@@ -20,13 +20,14 @@ import {
     ArrowDownCircle,
     ArrowUpCircle
 } from 'lucide-react';
-import { fetchTable, insertRow, updateRow, deleteRow } from '@/lib/api';
+import { fetchTable, insertRow, updateRow, deleteRow, registrarCambio } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
 import { ICONOS_MAQUINARIA, TipoMaquinaria, Role } from '@/lib/types';
 import { exportToExcel } from '@/lib/export';
 import { useAuth } from '@/components/auth-provider';
 import { puedeVer, puedeCrear, puedeEditar, puedeEliminar, puedeExportar } from '@/lib/permisos';
 import { useRouter } from 'next/navigation';
+import { getSeriePorCodigo, getCodigoConSerie } from '@/lib/equipos-data';
 
 type TipoMovimiento = 'ENTRADA' | 'SALIDA';
 
@@ -70,7 +71,7 @@ export default function CombustiblePage() {
     const [showCodigoFilter, setShowCodigoFilter] = useState(false);
     const [searchCodigo, setSearchCodigo] = useState('');
     const [usingDemo, setUsingDemo] = useState(true);
-    const { profile } = useAuth();
+    const { profile, user } = useAuth();
     const router = useRouter();
     const userRole = profile?.rol as Role;
 
@@ -146,6 +147,12 @@ export default function CombustiblePage() {
             return;
         }
 
+        const usuarioInfo = {
+            id: user?.id || 'demo',
+            email: user?.email || 'demo@demo.com',
+            nombre: profile?.nombre_completo || 'Usuario Demo'
+        };
+
         const maq = maquinaria.find(m => m.codigo === formData.codigo_maquina);
         const dataToSave = {
             ...formData,
@@ -162,8 +169,10 @@ export default function CombustiblePage() {
             try {
                 if (editingItem) {
                     await updateRow('combustible', editingItem.id, dataToSave);
+                    await registrarCambio('combustible', 'UPDATE', `${dataToSave.tipo_movimiento}-${dataToSave.codigo_maquina}`, editingItem, dataToSave, usuarioInfo);
                 } else {
-                    await insertRow('combustible', dataToSave);
+                    const result = await insertRow('combustible', dataToSave);
+                    await registrarCambio('combustible', 'CREATE', `${dataToSave.tipo_movimiento}-${dataToSave.codigo_maquina}`, null, dataToSave, usuarioInfo);
                 }
                 fetchData();
             } catch (error) {
@@ -179,10 +188,20 @@ export default function CombustiblePage() {
     async function handleDelete(id: string) {
         if (!confirm('¿Eliminar este registro?')) return;
 
+        const itemToDelete = registros.find(r => r.id === id);
+        const usuarioInfo = {
+            id: user?.id || 'demo',
+            email: user?.email || 'demo@demo.com',
+            nombre: profile?.nombre_completo || 'Usuario Demo'
+        };
+
         if (usingDemo) {
             setRegistros(prev => prev.filter(r => r.id !== id));
         } else {
             await deleteRow('combustible', id);
+            if (itemToDelete) {
+                await registrarCambio('combustible', 'DELETE', `${itemToDelete.tipo_movimiento}-${itemToDelete.codigo_maquina}`, itemToDelete, null, usuarioInfo);
+            }
             fetchData();
         }
     }
@@ -328,7 +347,7 @@ export default function CombustiblePage() {
                     </div>
 
                     {/* Dropdown filtro por código */}
-                    <div className="relative sm:w-56">
+                    <div className="relative sm:w-72">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Equipo</label>
                         <div className="relative">
                             <button
@@ -336,19 +355,19 @@ export default function CombustiblePage() {
                                 className="w-full input flex items-center justify-between text-left"
                             >
                                 <span className={filterCodigo ? 'text-gray-800' : 'text-gray-400'}>
-                                    {filterCodigo || 'Todos...'}
+                                    {filterCodigo ? (filterCodigo === 'CISTERNA' ? 'CISTERNA' : getCodigoConSerie(filterCodigo)) : 'Todos...'}
                                 </span>
                                 <ChevronDown size={18} className={`text-gray-400 transition-transform ${showCodigoFilter ? 'rotate-180' : ''}`} />
                             </button>
 
                             {showCodigoFilter && (
-                                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-72 overflow-hidden">
+                                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-hidden">
                                     <div className="p-2 border-b sticky top-0 bg-white">
                                         <div className="relative">
                                             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                             <input
                                                 type="text"
-                                                placeholder="Buscar..."
+                                                placeholder="Buscar código o serie..."
                                                 className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                                                 value={searchCodigo}
                                                 onChange={(e) => setSearchCodigo(e.target.value)}
@@ -356,7 +375,7 @@ export default function CombustiblePage() {
                                             />
                                         </div>
                                     </div>
-                                    <div className="overflow-y-auto max-h-52">
+                                    <div className="overflow-y-auto max-h-60">
                                         <button
                                             onClick={() => { setFilterCodigo(''); setShowCodigoFilter(false); setSearchCodigo(''); }}
                                             className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${!filterCodigo ? 'bg-amber-50 text-amber-700 font-medium' : 'text-gray-700'}`}
@@ -370,7 +389,11 @@ export default function CombustiblePage() {
                                             <Fuel size={16} /> CISTERNA (Abastecimientos)
                                         </button>
                                         {codigosUnicos
-                                            .filter(c => c.toLowerCase().includes(searchCodigo.toLowerCase()))
+                                            .filter(c => {
+                                                const serie = getSeriePorCodigo(c).toLowerCase();
+                                                const term = searchCodigo.toLowerCase();
+                                                return c.toLowerCase().includes(term) || serie.includes(term);
+                                            })
                                             .map(codigo => (
                                                 <button
                                                     key={codigo}
@@ -378,7 +401,8 @@ export default function CombustiblePage() {
                                                     className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${filterCodigo === codigo ? 'bg-amber-50 text-amber-700 font-medium' : 'text-gray-700'}`}
                                                 >
                                                     <span>{ICONOS_MAQUINARIA[registros.find(r => r.codigo_maquina === codigo)?.tipo_maquina as TipoMaquinaria] || '🚜'}</span>
-                                                    {codigo}
+                                                    <span className="font-medium">{codigo}</span>
+                                                    <span className="text-gray-400">({getSeriePorCodigo(codigo)})</span>
                                                 </button>
                                             ))}
                                     </div>

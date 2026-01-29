@@ -13,12 +13,15 @@ import {
     RefreshCw,
     Download,
     CheckSquare,
-    Square
+    Square,
+    ChevronDown
 } from 'lucide-react';
-import { fetchTable, insertRow, updateRow, deleteRow, deleteRows } from '@/lib/api';
+import { fetchTable, insertRow, updateRow, deleteRow, deleteRows, registrarCambio } from '@/lib/api';
 import { Maquinaria, TipoMaquinaria, EstadoMaquinaria, ICONOS_MAQUINARIA, EMPRESAS } from '@/lib/types';
 import { formatNumber } from '@/lib/utils';
 import { exportToExcel, formatMaquinariaForExport } from '@/lib/export';
+import { useAuth } from '@/components/auth-provider';
+import { getSeriePorCodigo, getCodigoConSerie } from '@/lib/equipos-data';
 
 const TIPOS: TipoMaquinaria[] = [
     'EXCAVADORA', 'MOTONIVELADORA', 'CARGADOR FRONTAL', 'RETROEXCAVADORA',
@@ -46,6 +49,10 @@ export default function MaquinariaPage() {
     const [showHorasModal, setShowHorasModal] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterCodigo, setFilterCodigo] = useState('');
+    const { profile, user } = useAuth();
+    const [showCodigoFilter, setShowCodigoFilter] = useState(false);
+    const [searchCodigo, setSearchCodigo] = useState('');
     const [filterTipo, setFilterTipo] = useState('');
     const [filterEstado, setFilterEstado] = useState('');
     const [newHoras, setNewHoras] = useState('');
@@ -76,7 +83,10 @@ export default function MaquinariaPage() {
 
     useEffect(() => {
         filterData();
-    }, [searchTerm, filterTipo, filterEstado, maquinaria]);
+    }, [searchTerm, filterCodigo, filterTipo, filterEstado, maquinaria]);
+
+    // Códigos únicos para dropdown
+    const codigosUnicos = [...new Set(maquinaria.map(m => m.codigo))].sort();
 
     async function fetchData() {
         try {
@@ -99,6 +109,12 @@ export default function MaquinariaPage() {
     function filterData() {
         let result = [...maquinaria];
 
+        // Filtrar por código seleccionado
+        if (filterCodigo) {
+            result = result.filter(m => m.codigo === filterCodigo);
+        }
+
+        // Filtrar por búsqueda de texto
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
             result = result.filter(m =>
@@ -139,6 +155,12 @@ export default function MaquinariaPage() {
     }
 
     async function handleSave() {
+        const usuarioInfo = {
+            id: user?.id || 'demo',
+            email: user?.email || 'demo@demo.com',
+            nombre: profile?.nombre_completo || 'Usuario Demo'
+        };
+
         if (usingDemo) {
             // Demo mode - update local state
             if (editingItem) {
@@ -154,8 +176,12 @@ export default function MaquinariaPage() {
         try {
             if (editingItem) {
                 await updateRow('maquinaria', editingItem.id, formData);
+                // Registrar cambio en historial
+                await registrarCambio('maquinaria', 'UPDATE', formData.codigo || editingItem.id, editingItem, formData, usuarioInfo);
             } else {
-                await insertRow('maquinaria', formData);
+                const result = await insertRow('maquinaria', formData);
+                // Registrar creación en historial
+                await registrarCambio('maquinaria', 'CREATE', formData.codigo || result?.id || '', null, formData, usuarioInfo);
             }
             fetchData();
             setShowModal(false);
@@ -171,6 +197,12 @@ export default function MaquinariaPage() {
             return;
         }
 
+        const usuarioInfo = {
+            id: user?.id || 'demo',
+            email: user?.email || 'demo@demo.com',
+            nombre: profile?.nombre_completo || 'Usuario Demo'
+        };
+
         if (usingDemo) {
             setMaquinaria(prev => prev.map(m =>
                 m.id === editingItem.id
@@ -182,10 +214,17 @@ export default function MaquinariaPage() {
         }
 
         try {
+            const datosAnteriores = { horas_actuales: editingItem.horas_actuales };
+            const datosNuevos = { horas_actuales: horas };
+
             await updateRow('maquinaria', editingItem.id, {
                 horas_actuales: horas,
                 updated_at: new Date().toISOString()
             });
+
+            // Registrar cambio de horómetro en historial
+            await registrarCambio('maquinaria', 'UPDATE', editingItem.codigo || editingItem.id, datosAnteriores, datosNuevos, usuarioInfo);
+
             fetchData();
             setShowHorasModal(false);
         } catch (error) {
@@ -196,6 +235,13 @@ export default function MaquinariaPage() {
     async function handleDelete(id: string) {
         if (!confirm('¿Está seguro de eliminar este equipo?')) return;
 
+        const itemToDelete = maquinaria.find(m => m.id === id);
+        const usuarioInfo = {
+            id: user?.id || 'demo',
+            email: user?.email || 'demo@demo.com',
+            nombre: profile?.nombre_completo || 'Usuario Demo'
+        };
+
         if (usingDemo) {
             setMaquinaria(prev => prev.filter(m => m.id !== id));
             setSelectedItems(prev => { prev.delete(id); return new Set(prev); });
@@ -204,6 +250,12 @@ export default function MaquinariaPage() {
 
         try {
             await deleteRow('maquinaria', id);
+
+            // Registrar eliminación en historial
+            if (itemToDelete) {
+                await registrarCambio('maquinaria', 'DELETE', itemToDelete.codigo || id, itemToDelete, null, usuarioInfo);
+            }
+
             setSelectedItems(prev => { prev.delete(id); return new Set(prev); });
             fetchData();
         } catch (error) {
@@ -215,6 +267,13 @@ export default function MaquinariaPage() {
         if (selectedItems.size === 0) return;
         if (!confirm(`¿Está seguro de eliminar ${selectedItems.size} equipo(s)?`)) return;
 
+        const itemsToDelete = maquinaria.filter(m => selectedItems.has(m.id));
+        const usuarioInfo = {
+            id: user?.id || 'demo',
+            email: user?.email || 'demo@demo.com',
+            nombre: profile?.nombre_completo || 'Usuario Demo'
+        };
+
         if (usingDemo) {
             setMaquinaria(prev => prev.filter(m => !selectedItems.has(m.id)));
             setSelectedItems(new Set());
@@ -223,6 +282,12 @@ export default function MaquinariaPage() {
 
         try {
             await deleteRows('maquinaria', Array.from(selectedItems));
+
+            // Registrar eliminaciones en historial
+            for (const item of itemsToDelete) {
+                await registrarCambio('maquinaria', 'DELETE', item.codigo || item.id, item, null, usuarioInfo);
+            }
+
             setSelectedItems(new Set());
             fetchData();
         } catch (error) {
@@ -294,79 +359,125 @@ export default function MaquinariaPage() {
                 </div>
             </div>
 
-            {/* Barra de códigos deslizable */}
-            <div className="card p-4">
-                <p className="text-sm text-gray-500 mb-3">Filtrar por código:</p>
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
-                    <button
-                        onClick={() => setSearchTerm('')}
-                        className={`shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all ${
-                            searchTerm === ''
-                                ? 'bg-blue-600 text-white shadow-md'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                    >
-                        Todos
-                    </button>
-                    {maquinaria.map((m) => (
-                        <button
-                            key={m.id}
-                            onClick={() => setSearchTerm(m.codigo)}
-                            className={`shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2 ${
-                                searchTerm === m.codigo
-                                    ? 'bg-blue-600 text-white shadow-md'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                        >
-                            <span>{ICONOS_MAQUINARIA[m.tipo as TipoMaquinaria] || '🔧'}</span>
-                            {m.codigo}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
             {/* Filters */}
             <div className="card p-4">
                 <div className="flex flex-wrap gap-4">
+                    {/* Dropdown filtro por código */}
+                    <div className="relative w-72">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Equipo</label>
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowCodigoFilter(!showCodigoFilter)}
+                                className="w-full input flex items-center justify-between text-left"
+                            >
+                                <span className={filterCodigo ? 'text-gray-800' : 'text-gray-400'}>
+                                    {filterCodigo ? getCodigoConSerie(filterCodigo) : 'Todos los equipos...'}
+                                </span>
+                                <ChevronDown size={18} className={`text-gray-400 transition-transform ${showCodigoFilter ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {showCodigoFilter && (
+                                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-hidden">
+                                    <div className="p-2 border-b sticky top-0 bg-white">
+                                        <div className="relative">
+                                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                placeholder="Buscar código o serie..."
+                                                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                value={searchCodigo}
+                                                onChange={(e) => setSearchCodigo(e.target.value)}
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="overflow-y-auto max-h-60">
+                                        <button
+                                            onClick={() => { setFilterCodigo(''); setShowCodigoFilter(false); setSearchCodigo(''); }}
+                                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${!filterCodigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                        >
+                                            Todos
+                                        </button>
+                                        {codigosUnicos
+                                            .filter(c => {
+                                                const serie = getSeriePorCodigo(c).toLowerCase();
+                                                const term = searchCodigo.toLowerCase();
+                                                return c.toLowerCase().includes(term) || serie.includes(term);
+                                            })
+                                            .map(codigo => (
+                                                <button
+                                                    key={codigo}
+                                                    onClick={() => { setFilterCodigo(codigo); setShowCodigoFilter(false); setSearchCodigo(''); }}
+                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${filterCodigo === codigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                                >
+                                                    <span>{ICONOS_MAQUINARIA[maquinaria.find(m => m.codigo === codigo)?.tipo as TipoMaquinaria] || '🔧'}</span>
+                                                    <span className="font-medium">{codigo}</span>
+                                                    <span className="text-gray-400">({getSeriePorCodigo(codigo) || maquinaria.find(m => m.codigo === codigo)?.serie || '-'})</span>
+                                                </button>
+                                            ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Búsqueda */}
                     <div className="flex-1 min-w-64">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                             <input
                                 type="text"
-                                placeholder="Buscar por código, serie, modelo u operador..."
+                                placeholder="Serie, modelo, operador..."
                                 className="input pl-10"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                     </div>
-                    <select
-                        className="input select w-48"
-                        value={filterTipo}
-                        onChange={(e) => setFilterTipo(e.target.value)}
-                    >
-                        <option value="">Todos los tipos</option>
-                        {TIPOS.map(t => (
-                            <option key={t} value={t}>{t}</option>
-                        ))}
-                    </select>
-                    <select
-                        className="input select w-48"
-                        value={filterEstado}
-                        onChange={(e) => setFilterEstado(e.target.value)}
-                    >
-                        <option value="">Todos los estados</option>
-                        {ESTADOS.map(e => (
-                            <option key={e} value={e}>{e}</option>
-                        ))}
-                    </select>
-                    <button
-                        onClick={() => { setSearchTerm(''); setFilterTipo(''); setFilterEstado(''); }}
-                        className="btn btn-outline"
-                    >
-                        <Filter size={18} />
-                        Limpiar
-                    </button>
+
+                    {/* Tipo */}
+                    <div className="w-48">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+                        <select
+                            className="input select w-full"
+                            value={filterTipo}
+                            onChange={(e) => setFilterTipo(e.target.value)}
+                        >
+                            <option value="">Todos</option>
+                            {TIPOS.map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Estado */}
+                    <div className="w-48">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                        <select
+                            className="input select w-full"
+                            value={filterEstado}
+                            onChange={(e) => setFilterEstado(e.target.value)}
+                        >
+                            <option value="">Todos</option>
+                            {ESTADOS.map(e => (
+                                <option key={e} value={e}>{e}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Limpiar filtros */}
+                    {(filterCodigo || searchTerm || filterTipo || filterEstado) && (
+                        <div className="self-end">
+                            <button
+                                onClick={() => { setFilterCodigo(''); setSearchTerm(''); setFilterTipo(''); setFilterEstado(''); }}
+                                className="btn btn-outline text-red-600 border-red-200 hover:bg-red-50"
+                            >
+                                <X size={18} />
+                                Limpiar
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -417,9 +528,14 @@ export default function MaquinariaPage() {
                                     </td>
                                     <td className="text-gray-500">{m.item}</td>
                                     <td>
-                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800 text-white font-bold text-sm">
-                                            {m.codigo}
-                                        </span>
+                                        <div className="flex flex-col">
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800 text-white font-bold text-sm w-fit">
+                                                {m.codigo}
+                                            </span>
+                                            <span className="text-xs text-gray-400 mt-0.5 pl-1">
+                                                {getSeriePorCodigo(m.codigo) || m.serie || '-'}
+                                            </span>
+                                        </div>
                                     </td>
                                     <td>
                                         <span className="flex items-center gap-2">

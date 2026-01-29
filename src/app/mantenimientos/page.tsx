@@ -15,7 +15,7 @@ import {
     ChevronDown,
     Search
 } from 'lucide-react';
-import { fetchTable, updateRow } from '@/lib/api';
+import { fetchTable, updateRow, registrarCambio } from '@/lib/api';
 import { formatNumber, formatDate, calcularAlertaMantenimiento, getColorAlertaMantenimiento } from '@/lib/utils';
 import { EstadoAlerta, ICONOS_MAQUINARIA, TipoMaquinaria } from '@/lib/types';
 import { exportToExcel, formatMantenimientosForExport } from '@/lib/export';
@@ -23,6 +23,7 @@ import { useAuth } from '@/components/auth-provider';
 import { puedeVer, puedeEditar, puedeExportar, Seccion } from '@/lib/permisos';
 import { Role } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import { getSeriePorCodigo, getCodigoConSerie } from '@/lib/equipos-data';
 
 const DEMO_MANTENIMIENTOS = [
     { id: '1', codigo_maquina: 'EXC-01', tipo: 'EXCAVADORA', modelo: '320D', mantenimiento_ultimo: 15362, mantenimiento_proximo: 15612, hora_actual: 15612, diferencia_horas: 0, operador: 'JOSE ABANTO', tramo: 'CVP KM 25', tipo_mantenimiento: 'PREVENTIVO 250H', estado_alerta: 'VENCIDO' },
@@ -46,7 +47,7 @@ export default function MantenimientosPage() {
     const [showCodigoFilter, setShowCodigoFilter] = useState(false);
     const [searchCodigo, setSearchCodigo] = useState('');
     const [usingDemo, setUsingDemo] = useState(true);
-    const { profile } = useAuth();
+    const { profile, user } = useAuth();
     const router = useRouter();
     const userRole = profile?.rol as Role;
 
@@ -107,6 +108,12 @@ export default function MantenimientosPage() {
     async function guardarEdicion() {
         if (!selectedItem) return;
 
+        const usuarioInfo = {
+            id: user?.id || 'demo',
+            email: user?.email || 'demo@demo.com',
+            nombre: profile?.nombre_completo || 'Usuario Demo'
+        };
+
         const horaActual = parseFloat(editForm.hora_actual) || selectedItem.hora_actual;
         const mttoProximo = parseFloat(editForm.mantenimiento_proximo) || selectedItem.mantenimiento_proximo;
         const diferencia = mttoProximo - horaActual;
@@ -136,6 +143,8 @@ export default function MantenimientosPage() {
 
         try {
             await updateRow('mantenimientos', selectedItem.id, actualizado);
+            // Registrar cambio en historial
+            await registrarCambio('mantenimientos', 'UPDATE', selectedItem.codigo_maquina, selectedItem, actualizado, usuarioInfo);
             fetchData();
             setShowEditModal(false);
         } catch (error) {
@@ -150,6 +159,12 @@ export default function MantenimientosPage() {
 
     async function registrarMantenimiento() {
         if (!selectedItem) return;
+
+        const usuarioInfo = {
+            id: user?.id || 'demo',
+            email: user?.email || 'demo@demo.com',
+            nombre: profile?.nombre_completo || 'Usuario Demo'
+        };
 
         const nuevoMantenimiento = {
             ...selectedItem,
@@ -169,6 +184,8 @@ export default function MantenimientosPage() {
 
         try {
             await updateRow('mantenimientos', selectedItem.id, nuevoMantenimiento);
+            // Registrar mantenimiento realizado en historial
+            await registrarCambio('mantenimientos', 'UPDATE', selectedItem.codigo_maquina, selectedItem, nuevoMantenimiento, usuarioInfo);
             fetchData();
             setShowModal(false);
         } catch (error) {
@@ -261,15 +278,15 @@ export default function MantenimientosPage() {
             {/* Filtro desplegable estilo Excel */}
             <div className="card p-4">
                 <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="relative flex-1">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Filtrar por Código</label>
+                    <div className="relative sm:w-80">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Equipo</label>
                         <div className="relative">
                             <button
                                 onClick={() => setShowCodigoFilter(!showCodigoFilter)}
                                 className="w-full input flex items-center justify-between text-left"
                             >
                                 <span className={filterCodigo ? 'text-gray-800' : 'text-gray-400'}>
-                                    {filterCodigo || 'Seleccionar código...'}
+                                    {filterCodigo ? getCodigoConSerie(filterCodigo) : 'Todos los equipos...'}
                                 </span>
                                 <ChevronDown
                                     size={18}
@@ -278,14 +295,13 @@ export default function MantenimientosPage() {
                             </button>
 
                             {showCodigoFilter && (
-                                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-72 overflow-hidden">
-                                    {/* Barra de búsqueda */}
+                                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-hidden">
                                     <div className="p-2 border-b sticky top-0 bg-white">
                                         <div className="relative">
                                             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                             <input
                                                 type="text"
-                                                placeholder="Buscar código..."
+                                                placeholder="Buscar código o serie..."
                                                 className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                                 value={searchCodigo}
                                                 onChange={(e) => setSearchCodigo(e.target.value)}
@@ -293,18 +309,21 @@ export default function MantenimientosPage() {
                                             />
                                         </div>
                                     </div>
-                                    {/* Lista de opciones */}
-                                    <div className="overflow-y-auto max-h-52">
+                                    <div className="overflow-y-auto max-h-60">
                                         <button
                                             onClick={() => { setFilterCodigo(''); setShowCodigoFilter(false); setSearchCodigo(''); }}
-                                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${
+                                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
                                                 !filterCodigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                                             }`}
                                         >
                                             Todos
                                         </button>
                                         {codigosUnicos
-                                            .filter(c => c.toLowerCase().includes(searchCodigo.toLowerCase()))
+                                            .filter(c => {
+                                                const serie = getSeriePorCodigo(c).toLowerCase();
+                                                const term = searchCodigo.toLowerCase();
+                                                return c.toLowerCase().includes(term) || serie.includes(term);
+                                            })
                                             .map(codigo => (
                                                 <button
                                                     key={codigo}
@@ -316,7 +335,8 @@ export default function MantenimientosPage() {
                                                     <span className="text-base">
                                                         {ICONOS_MAQUINARIA[mantenimientos.find(m => m.codigo_maquina === codigo)?.tipo as TipoMaquinaria] || '🔧'}
                                                     </span>
-                                                    {codigo}
+                                                    <span className="font-medium">{codigo}</span>
+                                                    <span className="text-gray-400">({getSeriePorCodigo(codigo)})</span>
                                                 </button>
                                             ))}
                                     </div>
