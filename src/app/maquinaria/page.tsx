@@ -294,6 +294,37 @@ export default function MaquinariaPage() {
                 </div>
             </div>
 
+            {/* Barra de códigos deslizable */}
+            <div className="card p-4">
+                <p className="text-sm text-gray-500 mb-3">Filtrar por código:</p>
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                    <button
+                        onClick={() => setSearchTerm('')}
+                        className={`shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all ${
+                            searchTerm === ''
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                    >
+                        Todos
+                    </button>
+                    {maquinaria.map((m) => (
+                        <button
+                            key={m.id}
+                            onClick={() => setSearchTerm(m.codigo)}
+                            className={`shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2 ${
+                                searchTerm === m.codigo
+                                    ? 'bg-blue-600 text-white shadow-md'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                        >
+                            <span>{ICONOS_MAQUINARIA[m.tipo as TipoMaquinaria] || '🔧'}</span>
+                            {m.codigo}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             {/* Filters */}
             <div className="card p-4">
                 <div className="flex flex-wrap gap-4">
@@ -384,8 +415,12 @@ export default function MaquinariaPage() {
                                             )}
                                         </button>
                                     </td>
-                                    <td>{m.item}</td>
-                                    <td className="font-semibold">{m.codigo}</td>
+                                    <td className="text-gray-500">{m.item}</td>
+                                    <td>
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800 text-white font-bold text-sm">
+                                            {m.codigo}
+                                        </span>
+                                    </td>
                                     <td>
                                         <span className="flex items-center gap-2">
                                             <span className="text-xl">{ICONOS_MAQUINARIA[m.tipo as TipoMaquinaria] || '🔧'}</span>

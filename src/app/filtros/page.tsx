@@ -246,6 +246,36 @@ export default function FiltrosPage() {
                 </div>
             </div>
 
+            {/* Barra de códigos deslizable */}
+            <div className="card p-4">
+                <p className="text-sm text-gray-500 mb-3">Filtrar por equipo:</p>
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                    <button
+                        onClick={() => setSearchTerm('')}
+                        className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                            searchTerm === ''
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                    >
+                        Todos
+                    </button>
+                    {filtros.map((f) => (
+                        <button
+                            key={f.id}
+                            onClick={() => setSearchTerm(f.maquinaria_codigo)}
+                            className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                                searchTerm === f.maquinaria_codigo
+                                    ? 'bg-blue-600 text-white shadow-md'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                        >
+                            {f.maquinaria_codigo}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             {/* Search & Select All */}
             <div className="card p-4">
                 <div className="flex flex-wrap gap-4 items-center">
