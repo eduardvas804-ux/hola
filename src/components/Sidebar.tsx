@@ -19,7 +19,8 @@ import {
     Users,
     Shield,
     X,
-    History
+    History,
+    Bell
 } from 'lucide-react';
 
 const menuItems = [
@@ -29,6 +30,7 @@ const menuItems = [
     { href: '/soat', label: 'Control SOAT', icon: FileCheck },
     { href: '/citv', label: 'Revisiones CITV', icon: ClipboardCheck },
     { href: '/filtros', label: 'Filtros', icon: Filter },
+    { href: '/alertas', label: 'Alertas Email', icon: Bell },
     { href: '/importar', label: 'Importar Datos', icon: Upload },
 ];
 
