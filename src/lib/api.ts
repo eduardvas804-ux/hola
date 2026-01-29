@@ -79,10 +79,21 @@ export async function updateRow<T>(table: string, id: string, data: Partial<T>):
 }
 
 export async function deleteRow(table: string, id: string): Promise<boolean> {
-    const response = await fetch(`${SUPABASE_URL}/${table}?id=eq.${id}`, {
+    const url = `${SUPABASE_URL}/${table}?id=eq.${id}`;
+    console.log(`🗑️ deleteRow: ${url}`);
+
+    const response = await fetch(url, {
         method: 'DELETE',
         headers: getHeaders()
     });
+
+    console.log(`🗑️ deleteRow response: ${response.status} ${response.statusText}`);
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ deleteRow error:`, errorText);
+    }
+
     return response.ok;
 }
 

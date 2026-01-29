@@ -14,18 +14,21 @@ import {
     Plus,
     X,
     Loader2,
-    Settings
+    Settings,
+    Trash2,
+    RefreshCw
 } from 'lucide-react';
-import { fetchTable, deleteRow } from '@/lib/api';
+import { createClient } from '@/lib/supabase';
 
 interface Alerta {
     id: string;
     tipo: 'mantenimiento' | 'soat' | 'citv';
     codigo: string;
     descripcion: string;
-    estado: string;
+    estado: 'VENCIDO' | 'URGENTE' | 'PROXIMO';
     valor: string;
     urgencia: 'alta' | 'media' | 'baja';
+    fecha_vencimiento?: string;
 }
 
 export default function AlertasPage() {
@@ -47,7 +50,6 @@ export default function AlertasPage() {
         cargarAlertas();
     }, []);
 
-    // Función para calcular días restantes desde una fecha
     function calcularDiasRestantes(fechaVencimiento: string): number {
         if (!fechaVencimiento) return 999;
         const hoy = new Date();
@@ -63,71 +65,131 @@ export default function AlertasPage() {
         const alertasTemp: Alerta[] = [];
 
         try {
-            // Cargar mantenimientos
-            const mantenimientos = await fetchTable<any>('mantenimientos');
-            console.log('Mantenimientos:', mantenimientos);
-            mantenimientos.forEach(m => {
-                // Calcular diferencia de horas si existen los campos
-                const horaActual = m.hora_actual || m.horas_actuales || 0;
-                const horaProgramada = m.hora_programada || m.proxima_hora || m.proximo_mantenimiento || 0;
-                const diferenciaHoras = horaProgramada - horaActual;
-
-                // Determinar estado basado en diferencia de horas
-                let estado = 'OK';
-                if (diferenciaHoras <= 0) estado = 'VENCIDO';
-                else if (diferenciaHoras <= 50) estado = 'URGENTE';
-                else if (diferenciaHoras <= 100) estado = 'PROXIMO';
-
-                if (['VENCIDO', 'URGENTE', 'PROXIMO'].includes(estado)) {
-                    alertasTemp.push({
-                        id: m.id,
-                        tipo: 'mantenimiento',
-                        codigo: m.codigo_maquina || m.codigo,
-                        descripcion: `${m.tipo || 'Mantenimiento'} - ${m.tipo_mantenimiento || m.descripcion || ''}`,
-                        estado: estado,
-                        valor: `${diferenciaHoras} hrs`,
-                        urgencia: estado === 'VENCIDO' ? 'alta' : estado === 'URGENTE' ? 'media' : 'baja'
-                    });
-                }
-            });
+            const supabase = createClient();
+            if (!supabase) {
+                console.log('Supabase no configurado');
+                setLoading(false);
+                return;
+            }
 
             // Cargar SOAT
-            const soat = await fetchTable<any>('soat');
-            console.log('SOAT:', soat);
-            soat.forEach(s => {
-                const diasRestantes = calcularDiasRestantes(s.fecha_vencimiento);
+            const { data: soatData, error: soatError } = await supabase
+                .from('soat')
+                .select('*');
 
-                if (diasRestantes < 30) {
-                    alertasTemp.push({
-                        id: s.id,
-                        tipo: 'soat',
-                        codigo: s.codigo,
-                        descripcion: `SOAT - ${s.tipo || 'Vehículo'} ${s.placa_serie || ''}`,
-                        estado: diasRestantes <= 0 ? 'VENCIDO' : diasRestantes <= 15 ? 'URGENTE' : 'PROXIMO',
-                        valor: diasRestantes <= 0 ? 'Vencido' : `${diasRestantes} días`,
-                        urgencia: diasRestantes <= 0 ? 'alta' : diasRestantes <= 15 ? 'media' : 'baja'
-                    });
-                }
-            });
+            console.log('SOAT data:', soatData, 'error:', soatError);
+
+            if (soatData) {
+                soatData.forEach(s => {
+                    const diasRestantes = calcularDiasRestantes(s.fecha_vencimiento);
+
+                    if (diasRestantes <= 30) {
+                        let estado: 'VENCIDO' | 'URGENTE' | 'PROXIMO' = 'PROXIMO';
+                        let urgencia: 'alta' | 'media' | 'baja' = 'baja';
+
+                        if (diasRestantes <= 0) {
+                            estado = 'VENCIDO';
+                            urgencia = 'alta';
+                        } else if (diasRestantes <= 15) {
+                            estado = 'URGENTE';
+                            urgencia = 'media';
+                        }
+
+                        alertasTemp.push({
+                            id: s.id,
+                            tipo: 'soat',
+                            codigo: s.codigo || 'Sin código',
+                            descripcion: `SOAT - ${s.tipo || ''} ${s.placa_serie || ''}`.trim(),
+                            estado,
+                            valor: diasRestantes <= 0 ? 'Vencido' : `${diasRestantes} días`,
+                            urgencia,
+                            fecha_vencimiento: s.fecha_vencimiento
+                        });
+                    }
+                });
+            }
 
             // Cargar CITV
-            const citv = await fetchTable<any>('citv');
-            console.log('CITV:', citv);
-            citv.forEach(c => {
-                const diasRestantes = calcularDiasRestantes(c.fecha_vencimiento);
+            const { data: citvData, error: citvError } = await supabase
+                .from('citv')
+                .select('*');
 
-                if (diasRestantes < 30) {
-                    alertasTemp.push({
-                        id: c.id,
-                        tipo: 'citv',
-                        codigo: c.codigo,
-                        descripcion: `CITV - ${c.tipo || 'Vehículo'} ${c.placa_serie || ''}`,
-                        estado: diasRestantes <= 0 ? 'VENCIDO' : diasRestantes <= 15 ? 'URGENTE' : 'PROXIMO',
-                        valor: diasRestantes <= 0 ? 'Vencido' : `${diasRestantes} días`,
-                        urgencia: diasRestantes <= 0 ? 'alta' : diasRestantes <= 15 ? 'media' : 'baja'
-                    });
-                }
-            });
+            console.log('CITV data:', citvData, 'error:', citvError);
+
+            if (citvData) {
+                citvData.forEach(c => {
+                    const diasRestantes = calcularDiasRestantes(c.fecha_vencimiento);
+
+                    if (diasRestantes <= 30) {
+                        let estado: 'VENCIDO' | 'URGENTE' | 'PROXIMO' = 'PROXIMO';
+                        let urgencia: 'alta' | 'media' | 'baja' = 'baja';
+
+                        if (diasRestantes <= 0) {
+                            estado = 'VENCIDO';
+                            urgencia = 'alta';
+                        } else if (diasRestantes <= 15) {
+                            estado = 'URGENTE';
+                            urgencia = 'media';
+                        }
+
+                        alertasTemp.push({
+                            id: c.id,
+                            tipo: 'citv',
+                            codigo: c.codigo || 'Sin código',
+                            descripcion: `CITV - ${c.tipo || ''} ${c.placa_serie || ''}`.trim(),
+                            estado,
+                            valor: diasRestantes <= 0 ? 'Vencido' : `${diasRestantes} días`,
+                            urgencia,
+                            fecha_vencimiento: c.fecha_vencimiento
+                        });
+                    }
+                });
+            }
+
+            // Cargar Mantenimientos
+            const { data: mantData, error: mantError } = await supabase
+                .from('mantenimientos')
+                .select('*');
+
+            console.log('Mantenimientos data:', mantData, 'error:', mantError);
+
+            if (mantData) {
+                mantData.forEach(m => {
+                    // Intentar diferentes campos para horas
+                    const horaActual = m.hora_actual || m.horas_actuales || 0;
+                    const horaProgramada = m.proxima_hora || m.hora_programada || m.proximo_mantenimiento || 0;
+
+                    if (horaProgramada > 0) {
+                        const diferenciaHoras = horaProgramada - horaActual;
+
+                        let estado: 'VENCIDO' | 'URGENTE' | 'PROXIMO' | null = null;
+                        let urgencia: 'alta' | 'media' | 'baja' = 'baja';
+
+                        if (diferenciaHoras <= 0) {
+                            estado = 'VENCIDO';
+                            urgencia = 'alta';
+                        } else if (diferenciaHoras <= 50) {
+                            estado = 'URGENTE';
+                            urgencia = 'media';
+                        } else if (diferenciaHoras <= 100) {
+                            estado = 'PROXIMO';
+                            urgencia = 'baja';
+                        }
+
+                        if (estado) {
+                            alertasTemp.push({
+                                id: m.id,
+                                tipo: 'mantenimiento',
+                                codigo: m.codigo_maquina || m.codigo || 'Sin código',
+                                descripcion: `Mantenimiento - ${m.tipo_mantenimiento || m.descripcion || 'General'}`,
+                                estado,
+                                valor: `${diferenciaHoras} hrs`,
+                                urgencia
+                            });
+                        }
+                    }
+                });
+            }
 
             // Ordenar por urgencia
             alertasTemp.sort((a, b) => {
@@ -143,10 +205,55 @@ export default function AlertasPage() {
                 total: alertasTemp.length
             });
 
+            console.log('Total alertas generadas:', alertasTemp.length);
+
         } catch (error) {
             console.error('Error cargando alertas:', error);
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function eliminarRegistro(alerta: Alerta) {
+        const tabla = alerta.tipo === 'mantenimiento' ? 'mantenimientos' : alerta.tipo;
+
+        if (!confirm(`¿Eliminar este registro de ${alerta.tipo.toUpperCase()}?\n\nCódigo: ${alerta.codigo}\n${alerta.descripcion}\n\nEsto eliminará el registro de la tabla ${tabla}.`)) {
+            return;
+        }
+
+        try {
+            const supabase = createClient();
+            if (!supabase) {
+                setMensaje({ tipo: 'error', texto: 'Supabase no configurado' });
+                return;
+            }
+
+            console.log(`Eliminando de ${tabla} con id: ${alerta.id}`);
+
+            const { error } = await supabase
+                .from(tabla)
+                .delete()
+                .eq('id', alerta.id);
+
+            if (error) {
+                console.error('Error eliminando:', error);
+                setMensaje({ tipo: 'error', texto: `Error: ${error.message}` });
+                return;
+            }
+
+            setAlertas(prev => prev.filter(a => a.id !== alerta.id));
+            setMensaje({ tipo: 'success', texto: `Registro de ${alerta.codigo} eliminado` });
+
+            // Actualizar stats
+            setStats(prev => ({
+                ...prev,
+                [alerta.tipo === 'mantenimiento' ? 'mantenimientos' : alerta.tipo]: prev[alerta.tipo === 'mantenimiento' ? 'mantenimientos' : alerta.tipo] - 1,
+                total: prev.total - 1
+            }));
+
+        } catch (error: any) {
+            console.error('Error eliminando:', error);
+            setMensaje({ tipo: 'error', texto: 'Error al eliminar' });
         }
     }
 
@@ -223,27 +330,6 @@ export default function AlertasPage() {
         }
     }
 
-    async function eliminarAlerta(alerta: Alerta) {
-        const tabla = alerta.tipo === 'mantenimiento' ? 'mantenimientos' : alerta.tipo;
-
-        if (!confirm(`¿Eliminar esta alerta de ${alerta.tipo.toUpperCase()}?\n\nCódigo: ${alerta.codigo}\n${alerta.descripcion}\n\nEsto eliminará el registro de la base de datos.`)) {
-            return;
-        }
-
-        try {
-            const result = await deleteRow(tabla, alerta.id);
-            if (result) {
-                setAlertas(prev => prev.filter(a => a.id !== alerta.id));
-                setMensaje({ tipo: 'success', texto: `Alerta de ${alerta.codigo} eliminada` });
-            } else {
-                throw new Error('No se pudo eliminar');
-            }
-        } catch (error) {
-            console.error('Error eliminando alerta:', error);
-            setMensaje({ tipo: 'error', texto: 'Error al eliminar la alerta' });
-        }
-    }
-
     if (loading) {
         return (
             <div className="flex items-center justify-center h-96">
@@ -261,16 +347,40 @@ export default function AlertasPage() {
                         <Bell className="text-amber-500" />
                         Centro de Alertas
                     </h1>
-                    <p className="text-gray-500 mt-1">Gestiona y envía alertas por email</p>
+                    <p className="text-gray-500 mt-1">Alertas generadas desde SOAT, CITV y Mantenimientos</p>
                 </div>
-                <button
-                    onClick={() => setShowConfig(!showConfig)}
-                    className="btn btn-primary"
-                >
-                    <Mail size={20} />
-                    Enviar Alertas
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={cargarAlertas}
+                        className="btn btn-outline"
+                        title="Recargar alertas"
+                    >
+                        <RefreshCw size={18} />
+                    </button>
+                    <button
+                        onClick={() => setShowConfig(!showConfig)}
+                        className="btn btn-primary"
+                    >
+                        <Mail size={20} />
+                        Enviar Alertas
+                    </button>
+                </div>
             </div>
+
+            {/* Mensaje */}
+            {mensaje && (
+                <div className={`p-4 rounded-lg flex items-center gap-2 ${
+                    mensaje.tipo === 'success'
+                        ? 'bg-green-50 text-green-800 border border-green-200'
+                        : 'bg-red-50 text-red-800 border border-red-200'
+                }`}>
+                    {mensaje.tipo === 'success' ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
+                    {mensaje.texto}
+                    <button onClick={() => setMensaje(null)} className="ml-auto">
+                        <X size={18} />
+                    </button>
+                </div>
+            )}
 
             {/* Stats Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -359,17 +469,6 @@ export default function AlertasPage() {
                             </button>
                         </div>
 
-                        {mensaje && (
-                            <div className={`p-4 rounded-lg flex items-center gap-2 ${
-                                mensaje.tipo === 'success'
-                                    ? 'bg-green-50 text-green-800 border border-green-200'
-                                    : 'bg-red-50 text-red-800 border border-red-200'
-                            }`}>
-                                {mensaje.tipo === 'success' ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
-                                {mensaje.texto}
-                            </div>
-                        )}
-
                         <div className="flex gap-3">
                             <button
                                 onClick={enviarAlertas}
@@ -401,8 +500,11 @@ export default function AlertasPage() {
 
             {/* Lista de Alertas */}
             <div className="card overflow-hidden">
-                <div className="p-4 border-b border-gray-100">
+                <div className="p-4 border-b border-gray-100 flex justify-between items-center">
                     <h2 className="font-bold text-gray-800">Alertas Pendientes</h2>
+                    <span className="text-sm text-gray-500">
+                        Datos de: SOAT, CITV, Mantenimientos
+                    </span>
                 </div>
 
                 {alertas.length === 0 ? (
@@ -410,12 +512,16 @@ export default function AlertasPage() {
                         <CheckCircle className="mx-auto text-green-500 mb-4" size={48} />
                         <p className="text-xl font-semibold text-gray-800">Todo en orden</p>
                         <p className="text-gray-500">No hay alertas pendientes</p>
+                        <p className="text-sm text-gray-400 mt-2">
+                            Las alertas se generan cuando hay SOAT/CITV próximos a vencer (30 días)
+                            o mantenimientos pendientes (100 horas)
+                        </p>
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-100">
-                        {alertas.map((alerta, index) => (
+                        {alertas.map((alerta) => (
                             <div
-                                key={index}
+                                key={`${alerta.tipo}-${alerta.id}`}
                                 className={`p-4 flex items-center gap-4 border-l-4 ${getColorByUrgencia(alerta.urgencia)}`}
                             >
                                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
@@ -437,6 +543,11 @@ export default function AlertasPage() {
                                         </span>
                                     </div>
                                     <p className="text-sm text-gray-500">{alerta.descripcion}</p>
+                                    {alerta.fecha_vencimiento && (
+                                        <p className="text-xs text-gray-400">
+                                            Vence: {new Date(alerta.fecha_vencimiento).toLocaleDateString('es-PE')}
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="text-right">
                                     <p className={`font-bold ${
@@ -449,11 +560,11 @@ export default function AlertasPage() {
                                     <p className="text-xs text-gray-400 capitalize">{alerta.tipo}</p>
                                 </div>
                                 <button
-                                    onClick={() => eliminarAlerta(alerta)}
+                                    onClick={() => eliminarRegistro(alerta)}
                                     className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
-                                    title="Eliminar alerta"
+                                    title={`Eliminar registro de ${alerta.tipo}`}
                                 >
-                                    <X size={18} />
+                                    <Trash2 size={18} />
                                 </button>
                             </div>
                         ))}
