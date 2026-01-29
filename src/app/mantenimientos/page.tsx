@@ -42,7 +42,6 @@ export default function MantenimientosPage() {
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedItem, setSelectedItem] = useState<any>(null);
     const [editForm, setEditForm] = useState<any>({});
-    const [filterEstado, setFilterEstado] = useState<string>('');
     const [filterCodigo, setFilterCodigo] = useState<string>('');
     const [showCodigoFilter, setShowCodigoFilter] = useState(false);
     const [searchCodigo, setSearchCodigo] = useState('');
@@ -80,7 +79,6 @@ export default function MantenimientosPage() {
     const codigosUnicos = [...new Set(mantenimientos.map(m => m.codigo_maquina))].sort();
 
     const filteredData = mantenimientos
-        .filter(m => !filterEstado || m.estado_alerta === filterEstado)
         .filter(m => !filterCodigo || m.codigo_maquina === filterCodigo);
 
     const stats = {
@@ -210,11 +208,8 @@ export default function MantenimientosPage() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <button
-                    onClick={() => setFilterEstado(filterEstado === 'VENCIDO' ? '' : 'VENCIDO')}
-                    className={`card p-5 text-left transition-all ${filterEstado === 'VENCIDO' ? 'ring-2 ring-red-500' : ''}`}
-                >
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="card p-5">
                     <div className="flex items-center gap-4">
                         <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center">
                             <AlertTriangle className="text-white" size={28} />
@@ -224,12 +219,9 @@ export default function MantenimientosPage() {
                             <p className="text-3xl font-bold text-red-600">{stats.vencido}</p>
                         </div>
                     </div>
-                </button>
+                </div>
 
-                <button
-                    onClick={() => setFilterEstado(filterEstado === 'URGENTE' ? '' : 'URGENTE')}
-                    className={`card p-5 text-left transition-all ${filterEstado === 'URGENTE' ? 'ring-2 ring-red-400' : ''}`}
-                >
+                <div className="card p-5">
                     <div className="flex items-center gap-4">
                         <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-red-400 to-red-500 flex items-center justify-center">
                             <Clock className="text-white" size={28} />
@@ -239,12 +231,9 @@ export default function MantenimientosPage() {
                             <p className="text-3xl font-bold text-red-500">{stats.urgente}</p>
                         </div>
                     </div>
-                </button>
+                </div>
 
-                <button
-                    onClick={() => setFilterEstado(filterEstado === 'PROXIMO' ? '' : 'PROXIMO')}
-                    className={`card p-5 text-left transition-all ${filterEstado === 'PROXIMO' ? 'ring-2 ring-amber-500' : ''}`}
-                >
+                <div className="card p-5">
                     <div className="flex items-center gap-4">
                         <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center">
                             <Wrench className="text-white" size={28} />
@@ -254,12 +243,9 @@ export default function MantenimientosPage() {
                             <p className="text-3xl font-bold text-amber-500">{stats.proximo}</p>
                         </div>
                     </div>
-                </button>
+                </div>
 
-                <button
-                    onClick={() => setFilterEstado(filterEstado === 'EN REGLA' ? '' : 'EN REGLA')}
-                    className={`card p-5 text-left transition-all ${filterEstado === 'EN REGLA' ? 'ring-2 ring-green-500' : ''}`}
-                >
+                <div className="card p-5">
                     <div className="flex items-center gap-4">
                         <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center">
                             <CheckCircle className="text-white" size={28} />
@@ -269,7 +255,7 @@ export default function MantenimientosPage() {
                             <p className="text-3xl font-bold text-green-500">{stats.enRegla}</p>
                         </div>
                     </div>
-                </button>
+                </div>
             </div>
 
             {/* Filtro desplegable estilo Excel */}
@@ -351,20 +337,10 @@ export default function MantenimientosPage() {
 
             {/* Table */}
             <div className="card overflow-hidden">
-                <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+                <div className="p-5 border-b border-gray-100">
                     <h2 className="text-lg font-bold text-gray-800">
-                        {filterEstado || filterCodigo
-                            ? `Equipos${filterCodigo ? ` - ${filterCodigo}` : ''}${filterEstado ? ` - ${filterEstado}` : ''}`
-                            : 'Todos los Equipos'}
+                        {filterCodigo ? `Equipos - ${filterCodigo}` : 'Todos los Equipos'}
                     </h2>
-                    {(filterEstado || filterCodigo) && (
-                        <button
-                            onClick={() => { setFilterEstado(''); setFilterCodigo(''); }}
-                            className="text-sm text-blue-600 hover:text-blue-800"
-                        >
-                            Ver todos
-                        </button>
-                    )}
                 </div>
                 <div className="overflow-x-auto">
                     <table className="data-table">

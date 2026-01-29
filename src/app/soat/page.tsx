@@ -281,18 +281,10 @@ export default function SOATPage() {
 
             {/* Table */}
             <div className="card overflow-hidden">
-                <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+                <div className="p-5 border-b border-gray-100">
                     <h2 className="text-lg font-bold text-gray-800">
                         {filterCodigo ? `SOAT - ${filterCodigo}` : 'Listado de SOAT'}
                     </h2>
-                    {filterCodigo && (
-                        <button
-                            onClick={() => setFilterCodigo('')}
-                            className="text-sm text-blue-600 hover:text-blue-800"
-                        >
-                            Ver todos
-                        </button>
-                    )}
                 </div>
                 <div className="overflow-x-auto">
                     <table className="data-table">
