@@ -16,9 +16,10 @@ import {
     Loader2,
     Settings
 } from 'lucide-react';
-import { fetchTable } from '@/lib/api';
+import { fetchTable, deleteRow } from '@/lib/api';
 
 interface Alerta {
+    id: string;
     tipo: 'mantenimiento' | 'soat' | 'citv';
     codigo: string;
     descripcion: string;
@@ -46,6 +47,17 @@ export default function AlertasPage() {
         cargarAlertas();
     }, []);
 
+    // Función para calcular días restantes desde una fecha
+    function calcularDiasRestantes(fechaVencimiento: string): number {
+        if (!fechaVencimiento) return 999;
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        const vencimiento = new Date(fechaVencimiento);
+        vencimiento.setHours(0, 0, 0, 0);
+        const diffTime = vencimiento.getTime() - hoy.getTime();
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+
     async function cargarAlertas() {
         setLoading(true);
         const alertasTemp: Alerta[] = [];
@@ -53,45 +65,66 @@ export default function AlertasPage() {
         try {
             // Cargar mantenimientos
             const mantenimientos = await fetchTable<any>('mantenimientos');
+            console.log('Mantenimientos:', mantenimientos);
             mantenimientos.forEach(m => {
-                if (['VENCIDO', 'URGENTE', 'PROXIMO'].includes(m.estado_alerta)) {
+                // Calcular diferencia de horas si existen los campos
+                const horaActual = m.hora_actual || m.horas_actuales || 0;
+                const horaProgramada = m.hora_programada || m.proxima_hora || m.proximo_mantenimiento || 0;
+                const diferenciaHoras = horaProgramada - horaActual;
+
+                // Determinar estado basado en diferencia de horas
+                let estado = 'OK';
+                if (diferenciaHoras <= 0) estado = 'VENCIDO';
+                else if (diferenciaHoras <= 50) estado = 'URGENTE';
+                else if (diferenciaHoras <= 100) estado = 'PROXIMO';
+
+                if (['VENCIDO', 'URGENTE', 'PROXIMO'].includes(estado)) {
                     alertasTemp.push({
+                        id: m.id,
                         tipo: 'mantenimiento',
-                        codigo: m.codigo_maquina,
-                        descripcion: `${m.tipo || 'Mantenimiento'} - ${m.tipo_mantenimiento || ''}`,
-                        estado: m.estado_alerta,
-                        valor: `${m.diferencia_horas} hrs`,
-                        urgencia: m.estado_alerta === 'VENCIDO' ? 'alta' : m.estado_alerta === 'URGENTE' ? 'media' : 'baja'
+                        codigo: m.codigo_maquina || m.codigo,
+                        descripcion: `${m.tipo || 'Mantenimiento'} - ${m.tipo_mantenimiento || m.descripcion || ''}`,
+                        estado: estado,
+                        valor: `${diferenciaHoras} hrs`,
+                        urgencia: estado === 'VENCIDO' ? 'alta' : estado === 'URGENTE' ? 'media' : 'baja'
                     });
                 }
             });
 
             // Cargar SOAT
             const soat = await fetchTable<any>('soat');
+            console.log('SOAT:', soat);
             soat.forEach(s => {
-                if (s.dias_restantes < 30) {
+                const diasRestantes = calcularDiasRestantes(s.fecha_vencimiento);
+
+                if (diasRestantes < 30) {
                     alertasTemp.push({
+                        id: s.id,
                         tipo: 'soat',
                         codigo: s.codigo,
-                        descripcion: `SOAT - ${s.tipo || 'Vehículo'}`,
-                        estado: s.dias_restantes <= 0 ? 'VENCIDO' : s.dias_restantes <= 15 ? 'URGENTE' : 'PROXIMO',
-                        valor: s.dias_restantes <= 0 ? 'Vencido' : `${s.dias_restantes} días`,
-                        urgencia: s.dias_restantes <= 0 ? 'alta' : s.dias_restantes <= 15 ? 'media' : 'baja'
+                        descripcion: `SOAT - ${s.tipo || 'Vehículo'} ${s.placa_serie || ''}`,
+                        estado: diasRestantes <= 0 ? 'VENCIDO' : diasRestantes <= 15 ? 'URGENTE' : 'PROXIMO',
+                        valor: diasRestantes <= 0 ? 'Vencido' : `${diasRestantes} días`,
+                        urgencia: diasRestantes <= 0 ? 'alta' : diasRestantes <= 15 ? 'media' : 'baja'
                     });
                 }
             });
 
             // Cargar CITV
             const citv = await fetchTable<any>('citv');
+            console.log('CITV:', citv);
             citv.forEach(c => {
-                if (c.dias_restantes < 30) {
+                const diasRestantes = calcularDiasRestantes(c.fecha_vencimiento);
+
+                if (diasRestantes < 30) {
                     alertasTemp.push({
+                        id: c.id,
                         tipo: 'citv',
                         codigo: c.codigo,
-                        descripcion: `CITV - ${c.tipo || 'Vehículo'}`,
-                        estado: c.dias_restantes <= 0 ? 'VENCIDO' : c.dias_restantes <= 15 ? 'URGENTE' : 'PROXIMO',
-                        valor: c.dias_restantes <= 0 ? 'Vencido' : `${c.dias_restantes} días`,
-                        urgencia: c.dias_restantes <= 0 ? 'alta' : c.dias_restantes <= 15 ? 'media' : 'baja'
+                        descripcion: `CITV - ${c.tipo || 'Vehículo'} ${c.placa_serie || ''}`,
+                        estado: diasRestantes <= 0 ? 'VENCIDO' : diasRestantes <= 15 ? 'URGENTE' : 'PROXIMO',
+                        valor: diasRestantes <= 0 ? 'Vencido' : `${diasRestantes} días`,
+                        urgencia: diasRestantes <= 0 ? 'alta' : diasRestantes <= 15 ? 'media' : 'baja'
                     });
                 }
             });
@@ -187,6 +220,27 @@ export default function AlertasPage() {
             case 'media': return 'border-amber-500 bg-amber-50';
             case 'baja': return 'border-blue-500 bg-blue-50';
             default: return 'border-gray-300 bg-gray-50';
+        }
+    }
+
+    async function eliminarAlerta(alerta: Alerta) {
+        const tabla = alerta.tipo === 'mantenimiento' ? 'mantenimientos' : alerta.tipo;
+
+        if (!confirm(`¿Eliminar esta alerta de ${alerta.tipo.toUpperCase()}?\n\nCódigo: ${alerta.codigo}\n${alerta.descripcion}\n\nEsto eliminará el registro de la base de datos.`)) {
+            return;
+        }
+
+        try {
+            const result = await deleteRow(tabla, alerta.id);
+            if (result) {
+                setAlertas(prev => prev.filter(a => a.id !== alerta.id));
+                setMensaje({ tipo: 'success', texto: `Alerta de ${alerta.codigo} eliminada` });
+            } else {
+                throw new Error('No se pudo eliminar');
+            }
+        } catch (error) {
+            console.error('Error eliminando alerta:', error);
+            setMensaje({ tipo: 'error', texto: 'Error al eliminar la alerta' });
         }
     }
 
@@ -394,6 +448,13 @@ export default function AlertasPage() {
                                     </p>
                                     <p className="text-xs text-gray-400 capitalize">{alerta.tipo}</p>
                                 </div>
+                                <button
+                                    onClick={() => eliminarAlerta(alerta)}
+                                    className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
+                                    title="Eliminar alerta"
+                                >
+                                    <X size={18} />
+                                </button>
                             </div>
                         ))}
                     </div>

@@ -21,17 +21,38 @@ function isConfigured(): boolean {
     return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 }
 
+// Versión simple que retorna array (para compatibilidad)
 export async function fetchTable<T>(table: string, query: string = ''): Promise<T[]> {
-    if (!isConfigured()) return [];
+    const result = await fetchTableWithStatus<T>(table, query);
+    return result.data;
+}
+
+// Versión que retorna estado de conexión
+export async function fetchTableWithStatus<T>(table: string, query: string = ''): Promise<{ data: T[], connected: boolean }> {
+    if (!isConfigured()) {
+        console.warn(`⚠️ fetchTable(${table}): Supabase no configurado`);
+        return { data: [], connected: false };
+    }
     try {
-        const response = await fetch(`${SUPABASE_URL}/${table}?select=*${query}`, {
+        const url = `${SUPABASE_URL}/${table}?select=*${query}`;
+        console.log(`📡 fetchTable(${table}):`, url);
+
+        const response = await fetch(url, {
             headers: getHeaders()
         });
-        if (!response.ok) return [];
-        return response.json();
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ fetchTable(${table}) error ${response.status}:`, errorText);
+            return { data: [], connected: false };
+        }
+
+        const data = await response.json();
+        console.log(`✅ fetchTable(${table}): ${data.length} registros`);
+        return { data, connected: true };
     } catch (error) {
-        console.error('Error fetching:', error);
-        return [];
+        console.error(`❌ fetchTable(${table}) exception:`, error);
+        return { data: [], connected: false };
     }
 }
 

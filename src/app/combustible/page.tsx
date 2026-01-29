@@ -20,7 +20,7 @@ import {
     ArrowDownCircle,
     ArrowUpCircle
 } from 'lucide-react';
-import { fetchTable, insertRow, updateRow, deleteRow, registrarCambio } from '@/lib/api';
+import { fetchTableWithStatus, insertRow, updateRow, deleteRow, registrarCambio } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
 import { ICONOS_MAQUINARIA, TipoMaquinaria, Role } from '@/lib/types';
 import { exportToExcel } from '@/lib/export';
@@ -109,24 +109,22 @@ export default function CombustiblePage() {
 
     async function fetchData() {
         try {
-            const [combustibleData, maquinariaData] = await Promise.all([
-                fetchTable<RegistroCombustible>('combustible', '&order=fecha.desc'),
-                fetchTable<any>('maquinaria', '&order=codigo')
+            const [combustibleResult, maquinariaResult] = await Promise.all([
+                fetchTableWithStatus<RegistroCombustible>('combustible', '&order=fecha.desc'),
+                fetchTableWithStatus<any>('maquinaria', '&order=codigo')
             ]);
 
-            console.log('Combustible data:', combustibleData);
-            console.log('Maquinaria data:', maquinariaData);
+            console.log('Combustible result:', combustibleResult);
+            console.log('Maquinaria result:', maquinariaResult);
 
-            // Si hay datos de Supabase (aunque sea array vacío pero la conexión funciona)
-            if (combustibleData !== null) {
-                if (combustibleData.length > 0) {
-                    setRegistros(combustibleData);
-                }
+            // Si la conexión funciona, usar datos reales (aunque estén vacíos)
+            if (combustibleResult.connected) {
                 setUsingDemo(false);
+                setRegistros(combustibleResult.data.length > 0 ? combustibleResult.data : []);
             }
 
-            if (maquinariaData?.length > 0) {
-                setMaquinaria(maquinariaData);
+            if (maquinariaResult.data.length > 0) {
+                setMaquinaria(maquinariaResult.data);
             }
         } catch (error) {
             console.error('Error:', error);

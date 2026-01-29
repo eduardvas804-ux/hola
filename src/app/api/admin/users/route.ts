@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: Request) {
     try {
         const body = await request.json();
         const { email, password, nombre_completo, rol } = body;
+
+        console.log('📝 Creando usuario:', { email, nombre_completo, rol });
 
         if (!email || !password || !nombre_completo) {
             return NextResponse.json(
@@ -14,7 +15,27 @@ export async function POST(request: Request) {
             );
         }
 
-        const supabaseAdmin = createAdminClient();
+        // Verificar variables de entorno
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        console.log('🔑 URL:', url ? 'OK' : 'FALTA');
+        console.log('🔑 Service Key:', serviceRoleKey ? 'OK' : 'FALTA');
+
+        if (!url || !serviceRoleKey) {
+            console.error('❌ Variables de entorno faltantes');
+            return NextResponse.json(
+                { error: 'Configuración del servidor incompleta. Falta SUPABASE_SERVICE_ROLE_KEY.' },
+                { status: 500 }
+            );
+        }
+
+        const supabaseAdmin = createClient(url, serviceRoleKey, {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false
+            }
+        });
 
         // 1. Crear usuario en Auth
         const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
@@ -58,7 +79,10 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true, user: userData.user });
 
     } catch (error: any) {
-        console.error('Error interno:', error);
-        return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+        console.error('❌ Error interno:', error);
+        console.error('❌ Stack:', error?.stack);
+        return NextResponse.json({
+            error: 'Error interno del servidor: ' + (error?.message || 'desconocido')
+        }, { status: 500 });
     }
 }

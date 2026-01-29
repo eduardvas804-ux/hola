@@ -81,7 +81,7 @@ const DEMO_HISTORIAL: HistorialItem[] = [
     },
 ];
 
-const TABLAS = ['Todas', 'maquinaria', 'mantenimientos', 'soat', 'citv', 'filtros', 'perfiles'];
+const TABLAS = ['Todas', 'maquinaria', 'combustible', 'mantenimientos', 'soat', 'citv', 'filtros', 'perfiles'];
 const ACCIONES = ['Todas', 'CREATE', 'UPDATE', 'DELETE'];
 
 export default function HistorialPage() {
@@ -99,38 +99,42 @@ export default function HistorialPage() {
     }, []);
 
     async function fetchHistorial() {
+        setLoading(true);
         try {
             const supabase = createClient();
             if (!supabase) {
-                console.log('Supabase no configurado');
+                console.log('❌ Supabase no configurado');
                 setLoading(false);
                 return;
             }
 
+            console.log('📡 Consultando historial...');
             const { data, error } = await supabase
                 .from('historial')
                 .select('*')
                 .order('created_at', { ascending: false })
                 .limit(100);
 
-            console.log('Historial data:', data);
-            console.log('Historial error:', error);
+            console.log('📥 Historial data:', data);
+            console.log('📥 Historial error:', error);
 
             if (error) {
-                console.error('Error RLS o tabla:', error.message);
-                // Si hay error de permisos, seguir en modo demo
+                console.error('❌ Error RLS o tabla:', error.message);
+                setLoading(false);
                 return;
             }
 
-            // Conexión exitosa - quitar modo demo aunque no haya datos
+            // Conexión exitosa
             setUsingDemo(false);
             if (data && data.length > 0) {
+                console.log(`✅ ${data.length} registros cargados`);
                 setHistorial(data);
             } else {
-                setHistorial([]); // Tabla vacía pero conectada
+                console.log('⚠️ Tabla vacía');
+                setHistorial([]);
             }
         } catch (error) {
-            console.error('Error fetching historial:', error);
+            console.error('❌ Error fetching historial:', error);
         } finally {
             setLoading(false);
         }
