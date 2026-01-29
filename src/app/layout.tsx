@@ -9,10 +9,14 @@ export const metadata: Metadata = {
   description: "Sistema de gestión y control de maquinaria pesada para el Grupo Vásquez",
 };
 
+import dynamic from "next/dynamic";
 import AuthProvider from "@/components/auth-provider";
 import AppShell from "@/components/app-shell";
 import { SidebarProvider } from "@/components/sidebar-context";
-import Asistente from "@/components/Asistente";
+
+const Asistente = dynamic(() => import("@/components/Asistente"), {
+  ssr: false,
+});
 
 export default function RootLayout({
   children,
