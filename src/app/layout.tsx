@@ -26,8 +26,8 @@ export default function RootLayout({
           <SidebarProvider>
             <AppShell>
               {children}
+              <Asistente />
             </AppShell>
-            <Asistente />
           </SidebarProvider>
         </AuthProvider>
       </body>

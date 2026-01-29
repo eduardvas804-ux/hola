@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Bot, User, Loader2, Minimize2, Maximize2 } from 'lucide-react';
-import { EQUIPOS_MAESTRO, getCodigoConSerie, getSeriePorCodigo, getTipoPorCodigo } from '@/lib/equipos-data';
+import { EQUIPOS_MAESTRO } from '@/lib/equipos-data';
 
 interface Message {
     id: string;
@@ -162,23 +162,31 @@ function generarRespuesta(pregunta: string): string {
 }
 
 export default function Asistente() {
+    const [mounted, setMounted] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            id: '1',
-            role: 'assistant',
-            content: '¡Hola! Soy tu asistente de MAQUINARIA PRO. ¿En qué puedo ayudarte?',
-            timestamp: new Date()
-        }
-    ]);
+    const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    // Solo renderizar en cliente para evitar errores de hidratación
+    useEffect(() => {
+        setMounted(true);
+        setMessages([{
+            id: '1',
+            role: 'assistant',
+            content: '¡Hola! Soy tu asistente de MAQUINARIA PRO. ¿En qué puedo ayudarte?',
+            timestamp: new Date()
+        }]);
+    }, []);
+
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    // No renderizar hasta que esté montado en cliente
+    if (!mounted) return null;
 
     async function handleSend() {
         if (!input.trim()) return;
