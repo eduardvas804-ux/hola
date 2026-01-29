@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     Wrench,
     AlertTriangle,
@@ -11,12 +11,19 @@ import {
     X,
     Download,
     Edit,
-    Pencil
+    Pencil,
+    ChevronLeft,
+    ChevronRight,
+    Search
 } from 'lucide-react';
 import { fetchTable, updateRow } from '@/lib/api';
 import { formatNumber, formatDate, calcularAlertaMantenimiento, getColorAlertaMantenimiento } from '@/lib/utils';
 import { EstadoAlerta, ICONOS_MAQUINARIA, TipoMaquinaria } from '@/lib/types';
 import { exportToExcel, formatMantenimientosForExport } from '@/lib/export';
+import { useAuth } from '@/components/auth-provider';
+import { puedeVer, puedeEditar, puedeExportar, Seccion } from '@/lib/permisos';
+import { Role } from '@/lib/types';
+import { useRouter } from 'next/navigation';
 
 const DEMO_MANTENIMIENTOS = [
     { id: '1', codigo_maquina: 'EXC-01', tipo: 'EXCAVADORA', modelo: '320D', mantenimiento_ultimo: 15362, mantenimiento_proximo: 15612, hora_actual: 15612, diferencia_horas: 0, operador: 'JOSE ABANTO', tramo: 'CVP KM 25', tipo_mantenimiento: 'PREVENTIVO 250H', estado_alerta: 'VENCIDO' },
@@ -37,11 +44,21 @@ export default function MantenimientosPage() {
     const [selectedItem, setSelectedItem] = useState<any>(null);
     const [editForm, setEditForm] = useState<any>({});
     const [filterEstado, setFilterEstado] = useState<string>('');
+    const [filterCodigo, setFilterCodigo] = useState<string>('');
     const [usingDemo, setUsingDemo] = useState(true);
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const { profile } = useAuth();
+    const router = useRouter();
+    const userRole = profile?.rol as Role;
 
     useEffect(() => {
+        // Verificar permisos
+        if (profile && !puedeVer(userRole, 'mantenimientos')) {
+            router.push('/');
+            return;
+        }
         fetchData();
-    }, []);
+    }, [profile, userRole, router]);
 
     async function fetchData() {
         try {
@@ -59,9 +76,24 @@ export default function MantenimientosPage() {
         }
     }
 
-    const filteredData = filterEstado
-        ? mantenimientos.filter(m => m.estado_alerta === filterEstado)
-        : mantenimientos;
+    // Obtener códigos únicos para el filtro deslizable
+    const codigosUnicos = [...new Set(mantenimientos.map(m => m.codigo_maquina))].sort();
+
+    const filteredData = mantenimientos
+        .filter(m => !filterEstado || m.estado_alerta === filterEstado)
+        .filter(m => !filterCodigo || m.codigo_maquina === filterCodigo);
+
+    // Funciones para scroll horizontal
+    const scrollLeft = () => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollBy({ left: -200, behavior: 'smooth' });
+        }
+    };
+    const scrollRight = () => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollBy({ left: 200, behavior: 'smooth' });
+        }
+    };
 
     const stats = {
         vencido: mantenimientos.filter(m => m.estado_alerta === 'VENCIDO').length,
@@ -175,10 +207,12 @@ export default function MantenimientosPage() {
                     <p className="text-gray-500 mt-1">Monitorea el estado de mantenimiento de tu flota</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button onClick={handleExport} className="btn btn-outline">
-                        <Download size={18} />
-                        Exportar Excel
-                    </button>
+                    {puedeExportar(userRole, 'mantenimientos') && (
+                        <button onClick={handleExport} className="btn btn-outline">
+                            <Download size={18} />
+                            Exportar Excel
+                        </button>
+                    )}
                     {usingDemo && (
                         <span className="bg-amber-100 text-amber-800 px-3 py-2 rounded-lg text-sm font-medium">
                             ⚠️ Modo Demo
@@ -250,15 +284,79 @@ export default function MantenimientosPage() {
                 </button>
             </div>
 
+            {/* Barra de búsqueda deslizable por código */}
+            <div className="card p-4">
+                <div className="flex items-center gap-2 mb-3">
+                    <Search size={18} className="text-gray-400" />
+                    <span className="text-sm font-medium text-gray-600">Filtrar por Código:</span>
+                    {filterCodigo && (
+                        <button
+                            onClick={() => setFilterCodigo('')}
+                            className="ml-auto text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                        >
+                            <X size={14} /> Limpiar
+                        </button>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={scrollLeft}
+                        className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors shrink-0"
+                    >
+                        <ChevronLeft size={20} />
+                    </button>
+                    <div
+                        ref={scrollRef}
+                        className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth flex-1"
+                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
+                        <button
+                            onClick={() => setFilterCodigo('')}
+                            className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all shrink-0 ${
+                                !filterCodigo
+                                    ? 'bg-blue-600 text-white shadow-lg'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                        >
+                            Todos
+                        </button>
+                        {codigosUnicos.map(codigo => (
+                            <button
+                                key={codigo}
+                                onClick={() => setFilterCodigo(codigo)}
+                                className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all shrink-0 flex items-center gap-2 ${
+                                    filterCodigo === codigo
+                                        ? 'bg-blue-600 text-white shadow-lg'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                            >
+                                <span className="text-lg">
+                                    {ICONOS_MAQUINARIA[mantenimientos.find(m => m.codigo_maquina === codigo)?.tipo as TipoMaquinaria] || '🔧'}
+                                </span>
+                                {codigo}
+                            </button>
+                        ))}
+                    </div>
+                    <button
+                        onClick={scrollRight}
+                        className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors shrink-0"
+                    >
+                        <ChevronRight size={20} />
+                    </button>
+                </div>
+            </div>
+
             {/* Table */}
             <div className="card overflow-hidden">
                 <div className="p-5 border-b border-gray-100 flex justify-between items-center">
                     <h2 className="text-lg font-bold text-gray-800">
-                        {filterEstado ? `Equipos - ${filterEstado}` : 'Todos los Equipos'}
+                        {filterEstado || filterCodigo
+                            ? `Equipos${filterCodigo ? ` - ${filterCodigo}` : ''}${filterEstado ? ` - ${filterEstado}` : ''}`
+                            : 'Todos los Equipos'}
                     </h2>
-                    {filterEstado && (
+                    {(filterEstado || filterCodigo) && (
                         <button
-                            onClick={() => setFilterEstado('')}
+                            onClick={() => { setFilterEstado(''); setFilterCodigo(''); }}
                             className="text-sm text-blue-600 hover:text-blue-800"
                         >
                             Ver todos
@@ -311,20 +409,24 @@ export default function MantenimientosPage() {
                                     </td>
                                     <td>
                                         <div className="flex gap-2">
-                                            <button
-                                                onClick={() => openEditModal(m)}
-                                                className="btn btn-outline py-2 px-3 text-sm"
-                                                title="Editar"
-                                            >
-                                                <Pencil size={16} />
-                                            </button>
-                                            <button
-                                                onClick={() => openRegisterModal(m)}
-                                                className="btn btn-secondary py-2 px-3 text-sm"
-                                            >
-                                                <Wrench size={16} />
-                                                Registrar Mtto
-                                            </button>
+                                            {puedeEditar(userRole, 'mantenimientos') && (
+                                                <>
+                                                    <button
+                                                        onClick={() => openEditModal(m)}
+                                                        className="btn btn-outline py-2 px-3 text-sm"
+                                                        title="Editar"
+                                                    >
+                                                        <Pencil size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openRegisterModal(m)}
+                                                        className="btn btn-secondary py-2 px-3 text-sm"
+                                                    >
+                                                        <Wrench size={16} />
+                                                        Registrar Mtto
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>

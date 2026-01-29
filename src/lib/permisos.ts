@@ -113,6 +113,11 @@ export function puedeEliminar(rol: Role | undefined, seccion: Seccion): boolean 
     return tienePermiso(rol, seccion, 'eliminar');
 }
 
+// Verificar si un rol puede exportar en una sección
+export function puedeExportar(rol: Role | undefined, seccion: Seccion): boolean {
+    return tienePermiso(rol, seccion, 'exportar');
+}
+
 // Obtener todas las secciones permitidas para un rol
 export function getSeccionesPermitidas(rol: Role | undefined): Seccion[] {
     if (!rol) return [];

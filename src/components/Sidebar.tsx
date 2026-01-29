@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { useSidebar } from '@/components/sidebar-context';
+import { puedeVer, Seccion } from '@/lib/permisos';
+import { Role } from '@/lib/types';
 import {
     LayoutDashboard,
     Truck,
@@ -26,18 +28,18 @@ import {
     FileText
 } from 'lucide-react';
 
-const menuItems = [
-    { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/maquinaria', label: 'Maquinaria', icon: Truck },
-    { href: '/mantenimientos', label: 'Mantenimientos', icon: Wrench },
-    { href: '/combustible', label: 'Combustible', icon: Fuel },
-    { href: '/soat', label: 'Control SOAT', icon: FileCheck },
-    { href: '/citv', label: 'Revisiones CITV', icon: ClipboardCheck },
-    { href: '/filtros', label: 'Filtros', icon: Filter },
-    { href: '/valorizaciones', label: 'Valorizaciones', icon: FileSpreadsheet },
-    { href: '/reportes', label: 'Reportes PDF', icon: FileText },
-    { href: '/alertas', label: 'Alertas Email', icon: Bell },
-    { href: '/importar', label: 'Importar Datos', icon: Upload },
+const menuItems: { href: string; label: string; icon: any; seccion: Seccion }[] = [
+    { href: '/', label: 'Dashboard', icon: LayoutDashboard, seccion: 'dashboard' },
+    { href: '/maquinaria', label: 'Maquinaria', icon: Truck, seccion: 'maquinaria' },
+    { href: '/mantenimientos', label: 'Mantenimientos', icon: Wrench, seccion: 'mantenimientos' },
+    { href: '/combustible', label: 'Combustible', icon: Fuel, seccion: 'combustible' },
+    { href: '/soat', label: 'Control SOAT', icon: FileCheck, seccion: 'soat' },
+    { href: '/citv', label: 'Revisiones CITV', icon: ClipboardCheck, seccion: 'citv' },
+    { href: '/filtros', label: 'Filtros', icon: Filter, seccion: 'filtros' },
+    { href: '/valorizaciones', label: 'Valorizaciones', icon: FileSpreadsheet, seccion: 'valorizaciones' },
+    { href: '/reportes', label: 'Reportes PDF', icon: FileText, seccion: 'reportes' },
+    { href: '/alertas', label: 'Alertas Email', icon: Bell, seccion: 'alertas' },
+    { href: '/importar', label: 'Importar Datos', icon: Upload, seccion: 'importar' },
 ];
 
 export default function Sidebar() {
@@ -96,7 +98,9 @@ export default function Sidebar() {
             {/* Navigation */}
             <nav className="flex-1 py-6 overflow-y-auto">
                 <ul className="space-y-1">
-                    {menuItems.map((item) => {
+                    {menuItems
+                        .filter((item) => puedeVer(profile?.rol as Role, item.seccion))
+                        .map((item) => {
                         const Icon = item.icon;
                         const isActive = pathname === item.href;
 
@@ -118,8 +122,8 @@ export default function Sidebar() {
                         );
                     })}
 
-                    {/* Admin Section */}
-                    {isAdmin && (
+                    {/* Admin Section - Usuarios */}
+                    {puedeVer(profile?.rol as Role, 'usuarios') && (
                         <>
                             <div className="my-4 border-t border-white/10 mx-4"></div>
                             <li>
@@ -136,21 +140,24 @@ export default function Sidebar() {
                                     )}
                                 </Link>
                             </li>
-                            <li>
-                                <Link
-                                    href="/historial"
-                                    onClick={handleLinkClick}
-                                    className={`sidebar-link flex items-center gap-3 px-4 py-3 text-white/80 hover:text-white ${pathname === '/historial' ? 'active text-white' : ''
-                                        }`}
-                                    title={collapsed && !isMobile ? 'Historial' : undefined}
-                                >
-                                    <History size={22} className="text-cyan-400" />
-                                    {(!collapsed || isMobile) && (
-                                        <span className="font-medium">Historial Cambios</span>
-                                    )}
-                                </Link>
-                            </li>
                         </>
+                    )}
+                    {/* Admin Section - Historial */}
+                    {puedeVer(profile?.rol as Role, 'historial') && (
+                        <li>
+                            <Link
+                                href="/historial"
+                                onClick={handleLinkClick}
+                                className={`sidebar-link flex items-center gap-3 px-4 py-3 text-white/80 hover:text-white ${pathname === '/historial' ? 'active text-white' : ''
+                                    }`}
+                                title={collapsed && !isMobile ? 'Historial' : undefined}
+                            >
+                                <History size={22} className="text-cyan-400" />
+                                {(!collapsed || isMobile) && (
+                                    <span className="font-medium">Historial Cambios</span>
+                                )}
+                            </Link>
+                        </li>
                     )}
                 </ul>
             </nav>

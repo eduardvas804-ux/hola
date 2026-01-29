@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     ClipboardCheck,
     AlertTriangle,
@@ -10,11 +10,18 @@ import {
     Edit,
     X,
     Save,
-    Download
+    Download,
+    ChevronLeft,
+    ChevronRight,
+    Search
 } from 'lucide-react';
 import { fetchTable, updateRow } from '@/lib/api';
 import { formatDate, calcularAlertaDocumento } from '@/lib/utils';
 import { exportToExcel, formatCitvForExport } from '@/lib/export';
+import { useAuth } from '@/components/auth-provider';
+import { puedeVer, puedeEditar, puedeExportar } from '@/lib/permisos';
+import { Role } from '@/lib/types';
+import { useRouter } from 'next/navigation';
 
 const DEMO_CITV = [
     { id: '1', codigo: 'VOL-01', tipo: 'VOLQUETE', modelo: 'ACTROS 3336K', placa_serie: 'WDB9302', empresa: 'JLMX VASQUEZ EJECUTORES E.I.R.L', fecha_vencimiento: '2026-02-20' },
@@ -31,10 +38,19 @@ export default function CITVPage() {
     const [selectedItem, setSelectedItem] = useState<any>(null);
     const [newFecha, setNewFecha] = useState('');
     const [usingDemo, setUsingDemo] = useState(true);
+    const [filterCodigo, setFilterCodigo] = useState<string>('');
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const { profile } = useAuth();
+    const router = useRouter();
+    const userRole = profile?.rol as Role;
 
     useEffect(() => {
+        if (profile && !puedeVer(userRole, 'citv')) {
+            router.push('/');
+            return;
+        }
         fetchData();
-    }, []);
+    }, [profile, userRole, router]);
 
     async function fetchData() {
         try {
@@ -58,6 +74,26 @@ export default function CITVPage() {
         const { accion, diasRestantes, color } = calcularAlertaDocumento(c.fecha_vencimiento);
         return { ...c, dias_restantes: diasRestantes, accion_requerida: accion, color };
     }).sort((a, b) => a.dias_restantes - b.dias_restantes);
+
+    // Obtener códigos únicos para el filtro deslizable
+    const codigosUnicos = [...new Set(citv.map(c => c.codigo))].sort();
+
+    // Filtrar por código
+    const citvFiltrado = filterCodigo
+        ? citvConEstado.filter(c => c.codigo === filterCodigo)
+        : citvConEstado;
+
+    // Funciones para scroll horizontal
+    const scrollLeft = () => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollBy({ left: -200, behavior: 'smooth' });
+        }
+    };
+    const scrollRight = () => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollBy({ left: 200, behavior: 'smooth' });
+        }
+    };
 
     const stats = {
         vencido: citvConEstado.filter(c => c.dias_restantes < 0).length,
@@ -116,10 +152,12 @@ export default function CITVPage() {
                     <p className="text-gray-500 mt-1">Control de Inspecciones Técnicas Vehiculares</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button onClick={handleExport} className="btn btn-outline">
-                        <Download size={18} />
-                        Exportar Excel
-                    </button>
+                    {puedeExportar(userRole, 'citv') && (
+                        <button onClick={handleExport} className="btn btn-outline">
+                            <Download size={18} />
+                            Exportar Excel
+                        </button>
+                    )}
                     {usingDemo && (
                         <span className="bg-amber-100 text-amber-800 px-3 py-2 rounded-lg text-sm font-medium">
                             ⚠️ Modo Demo
@@ -179,10 +217,79 @@ export default function CITVPage() {
                 </div>
             </div>
 
+            {/* Barra de búsqueda deslizable por código */}
+            <div className="card p-4">
+                <div className="flex items-center gap-2 mb-3">
+                    <Search size={18} className="text-gray-400" />
+                    <span className="text-sm font-medium text-gray-600">Filtrar por Código:</span>
+                    {filterCodigo && (
+                        <button
+                            onClick={() => setFilterCodigo('')}
+                            className="ml-auto text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                        >
+                            <X size={14} /> Limpiar
+                        </button>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={scrollLeft}
+                        className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors shrink-0"
+                    >
+                        <ChevronLeft size={20} />
+                    </button>
+                    <div
+                        ref={scrollRef}
+                        className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth flex-1"
+                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
+                        <button
+                            onClick={() => setFilterCodigo('')}
+                            className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all shrink-0 ${
+                                !filterCodigo
+                                    ? 'bg-blue-600 text-white shadow-lg'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                        >
+                            Todos
+                        </button>
+                        {codigosUnicos.map(codigo => (
+                            <button
+                                key={codigo}
+                                onClick={() => setFilterCodigo(codigo)}
+                                className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all shrink-0 ${
+                                    filterCodigo === codigo
+                                        ? 'bg-blue-600 text-white shadow-lg'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                            >
+                                {codigo}
+                            </button>
+                        ))}
+                    </div>
+                    <button
+                        onClick={scrollRight}
+                        className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors shrink-0"
+                    >
+                        <ChevronRight size={20} />
+                    </button>
+                </div>
+            </div>
+
             {/* Table */}
             <div className="card overflow-hidden">
-                <div className="p-5 border-b border-gray-100">
-                    <h2 className="text-lg font-bold text-gray-800">Listado de Revisiones Técnicas</h2>
+                <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+                    <h2 className="text-lg font-bold text-gray-800">
+                        {filterCodigo ? `CITV - ${filterCodigo}` : 'Listado de Revisiones Técnicas'}
+                    </h2>
+                    {filterCodigo && (
+                        <button
+                            onClick={() => setFilterCodigo('')}
+                            className="text-sm text-blue-600 hover:text-blue-800"
+                        >
+                            Ver todos
+                        </button>
+                    )}
                 </div>
                 <div className="overflow-x-auto">
                     <table className="data-table">
@@ -200,7 +307,7 @@ export default function CITVPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {citvConEstado.map((c) => (
+                            {citvFiltrado.map((c) => (
                                 <tr key={c.id}>
                                     <td className="font-semibold">{c.codigo}</td>
                                     <td>{c.tipo}</td>
@@ -225,13 +332,15 @@ export default function CITVPage() {
                                         </span>
                                     </td>
                                     <td>
-                                        <button
-                                            onClick={() => openRenovarModal(c)}
-                                            className="btn btn-primary py-2 px-3 text-sm"
-                                        >
-                                            <Edit size={16} />
-                                            Actualizar
-                                        </button>
+                                        {puedeEditar(userRole, 'citv') && (
+                                            <button
+                                                onClick={() => openRenovarModal(c)}
+                                                className="btn btn-primary py-2 px-3 text-sm"
+                                            >
+                                                <Edit size={16} />
+                                                Actualizar
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             ))}

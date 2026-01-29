@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     Fuel,
     Plus,
@@ -13,12 +13,17 @@ import {
     Save,
     X,
     Edit,
-    Trash2
+    Trash2,
+    ChevronLeft,
+    ChevronRight
 } from 'lucide-react';
 import { fetchTable, insertRow, updateRow, deleteRow } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
-import { ICONOS_MAQUINARIA, TipoMaquinaria } from '@/lib/types';
+import { ICONOS_MAQUINARIA, TipoMaquinaria, Role } from '@/lib/types';
 import { exportToExcel } from '@/lib/export';
+import { useAuth } from '@/components/auth-provider';
+import { puedeVer, puedeCrear, puedeEditar, puedeEliminar, puedeExportar } from '@/lib/permisos';
+import { useRouter } from 'next/navigation';
 
 interface RegistroCombustible {
     id: string;
@@ -52,7 +57,12 @@ export default function CombustiblePage() {
     const [editingItem, setEditingItem] = useState<RegistroCombustible | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterMes, setFilterMes] = useState('');
+    const [filterCodigo, setFilterCodigo] = useState<string>('');
     const [usingDemo, setUsingDemo] = useState(true);
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const { profile } = useAuth();
+    const router = useRouter();
+    const userRole = profile?.rol as Role;
 
     const emptyForm: Partial<RegistroCombustible> = {
         fecha: new Date().toISOString().split('T')[0],
@@ -70,8 +80,12 @@ export default function CombustiblePage() {
     const [formData, setFormData] = useState(emptyForm);
 
     useEffect(() => {
+        if (profile && !puedeVer(userRole, 'combustible')) {
+            router.push('/');
+            return;
+        }
         fetchData();
-    }, []);
+    }, [profile, userRole, router]);
 
     useEffect(() => {
         // Calcular total automáticamente
@@ -176,11 +190,27 @@ export default function CombustiblePage() {
         exportToExcel(data, 'Combustible_' + new Date().toISOString().split('T')[0], 'Combustible');
     }
 
+    // Obtener códigos únicos para el filtro deslizable
+    const codigosUnicos = [...new Set(registros.map(r => r.codigo_maquina))].sort();
+
+    // Funciones para scroll horizontal
+    const scrollLeft = () => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollBy({ left: -200, behavior: 'smooth' });
+        }
+    };
+    const scrollRight = () => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollBy({ left: 200, behavior: 'smooth' });
+        }
+    };
+
     const filteredRegistros = registros.filter(r => {
         const matchSearch = r.codigo_maquina.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (r.operador || '').toLowerCase().includes(searchTerm.toLowerCase());
         const matchMes = !filterMes || r.fecha.startsWith(filterMes);
-        return matchSearch && matchMes;
+        const matchCodigo = !filterCodigo || r.codigo_maquina === filterCodigo;
+        return matchSearch && matchMes && matchCodigo;
     });
 
     // Estadísticas
@@ -209,15 +239,19 @@ export default function CombustiblePage() {
                     <p className="text-gray-500 mt-1">Registro de consumo de combustible</p>
                 </div>
                 <div className="flex gap-3">
-                    <button onClick={handleExport} className="btn btn-outline">
-                        <Download size={18} />
-                        Exportar
-                    </button>
+                    {puedeExportar(userRole, 'combustible') && (
+                        <button onClick={handleExport} className="btn btn-outline">
+                            <Download size={18} />
+                            Exportar
+                        </button>
+                    )}
                     {usingDemo && <span className="bg-amber-100 text-amber-800 px-3 py-2 rounded-lg text-sm">Demo</span>}
-                    <button onClick={openCreateModal} className="btn btn-primary">
-                        <Plus size={20} />
-                        Nuevo Registro
-                    </button>
+                    {puedeCrear(userRole, 'combustible') && (
+                        <button onClick={openCreateModal} className="btn btn-primary">
+                            <Plus size={20} />
+                            Nuevo Registro
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -269,7 +303,67 @@ export default function CombustiblePage() {
                 </div>
             </div>
 
-            {/* Filtros */}
+            {/* Barra de búsqueda deslizable por código */}
+            <div className="card p-4">
+                <div className="flex items-center gap-2 mb-3">
+                    <Search size={18} className="text-gray-400" />
+                    <span className="text-sm font-medium text-gray-600">Filtrar por Código:</span>
+                    {filterCodigo && (
+                        <button
+                            onClick={() => setFilterCodigo('')}
+                            className="ml-auto text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                        >
+                            <X size={14} /> Limpiar
+                        </button>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={scrollLeft}
+                        className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors shrink-0"
+                    >
+                        <ChevronLeft size={20} />
+                    </button>
+                    <div
+                        ref={scrollRef}
+                        className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth flex-1"
+                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
+                        <button
+                            onClick={() => setFilterCodigo('')}
+                            className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all shrink-0 ${
+                                !filterCodigo
+                                    ? 'bg-blue-600 text-white shadow-lg'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                        >
+                            Todos
+                        </button>
+                        {codigosUnicos.map(codigo => (
+                            <button
+                                key={codigo}
+                                onClick={() => setFilterCodigo(codigo)}
+                                className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all shrink-0 flex items-center gap-2 ${
+                                    filterCodigo === codigo
+                                        ? 'bg-blue-600 text-white shadow-lg'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                            >
+                                <span>{ICONOS_MAQUINARIA[registros.find(r => r.codigo_maquina === codigo)?.tipo_maquina as TipoMaquinaria] || '🚜'}</span>
+                                {codigo}
+                            </button>
+                        ))}
+                    </div>
+                    <button
+                        onClick={scrollRight}
+                        className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors shrink-0"
+                    >
+                        <ChevronRight size={20} />
+                    </button>
+                </div>
+            </div>
+
+            {/* Filtros adicionales */}
             <div className="card p-4">
                 <div className="flex flex-col sm:flex-row gap-3">
                     <div className="relative flex-1">
@@ -327,12 +421,16 @@ export default function CombustiblePage() {
                                         <td>{r.proveedor || '-'}</td>
                                         <td>
                                             <div className="flex gap-2">
-                                                <button onClick={() => openEditModal(r)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
-                                                    <Edit size={18} />
-                                                </button>
-                                                <button onClick={() => handleDelete(r.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
-                                                    <Trash2 size={18} />
-                                                </button>
+                                                {puedeEditar(userRole, 'combustible') && (
+                                                    <button onClick={() => openEditModal(r)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
+                                                        <Edit size={18} />
+                                                    </button>
+                                                )}
+                                                {puedeEliminar(userRole, 'combustible') && (
+                                                    <button onClick={() => handleDelete(r.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

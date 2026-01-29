@@ -15,7 +15,10 @@ import {
 } from 'lucide-react';
 import { fetchTable } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
-import { ICONOS_MAQUINARIA, TipoMaquinaria } from '@/lib/types';
+import { ICONOS_MAQUINARIA, TipoMaquinaria, Role } from '@/lib/types';
+import { useAuth } from '@/components/auth-provider';
+import { puedeVer } from '@/lib/permisos';
+import { useRouter } from 'next/navigation';
 
 type TipoReporte = 'general' | 'maquinaria' | 'mantenimientos' | 'combustible' | 'documentos';
 
@@ -32,9 +35,17 @@ export default function ReportesPage() {
     const [citv, setCitv] = useState<any[]>([]);
     const [combustible, setCombustible] = useState<any[]>([]);
 
+    const { profile } = useAuth();
+    const router = useRouter();
+    const userRole = profile?.rol as Role;
+
     useEffect(() => {
+        if (profile && !puedeVer(userRole, 'reportes')) {
+            router.push('/');
+            return;
+        }
         fetchData();
-    }, []);
+    }, [profile, userRole, router]);
 
     async function fetchData() {
         try {

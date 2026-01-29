@@ -19,6 +19,10 @@ import {
 import { fetchTable, updateRow } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
 import * as XLSX from 'xlsx';
+import { useAuth } from '@/components/auth-provider';
+import { puedeVer, puedeCrear } from '@/lib/permisos';
+import { Role } from '@/lib/types';
+import { useRouter } from 'next/navigation';
 
 interface Valorizacion {
     id: string;
@@ -51,9 +55,17 @@ export default function ValorizacionesPage() {
     const [showPreview, setShowPreview] = useState(false);
     const [updateResults, setUpdateResults] = useState<{ success: number; errors: number } | null>(null);
 
+    const { profile } = useAuth();
+    const router = useRouter();
+    const userRole = profile?.rol as Role;
+
     useEffect(() => {
+        if (profile && !puedeVer(userRole, 'valorizaciones')) {
+            router.push('/');
+            return;
+        }
         fetchData();
-    }, []);
+    }, [profile, userRole, router]);
 
     async function fetchData() {
         try {
@@ -247,25 +259,26 @@ export default function ValorizacionesPage() {
             </div>
 
             {/* Zona de carga */}
-            <div className="card p-8">
-                <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition-colors">
-                    <input
-                        type="file"
-                        accept=".xlsx,.xls"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                        id="excel-upload"
-                    />
-                    <label htmlFor="excel-upload" className="cursor-pointer">
-                        <Upload className="mx-auto text-gray-400 mb-4" size={48} />
-                        <p className="text-lg font-semibold text-gray-700 mb-2">
-                            {fileName || 'Arrastra un archivo Excel o haz clic para seleccionar'}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                            El sistema buscará automáticamente los códigos de máquina y horómetros
-                        </p>
-                    </label>
-                </div>
+            {puedeCrear(userRole, 'valorizaciones') ? (
+                <div className="card p-8">
+                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition-colors">
+                        <input
+                            type="file"
+                            accept=".xlsx,.xls"
+                            onChange={handleFileUpload}
+                            className="hidden"
+                            id="excel-upload"
+                        />
+                        <label htmlFor="excel-upload" className="cursor-pointer">
+                            <Upload className="mx-auto text-gray-400 mb-4" size={48} />
+                            <p className="text-lg font-semibold text-gray-700 mb-2">
+                                {fileName || 'Arrastra un archivo Excel o haz clic para seleccionar'}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                                El sistema buscará automáticamente los códigos de máquina y horómetros
+                            </p>
+                        </label>
+                    </div>
 
                 {processing && (
                     <div className="flex items-center justify-center gap-3 mt-6 text-blue-600">
@@ -274,6 +287,11 @@ export default function ValorizacionesPage() {
                     </div>
                 )}
             </div>
+            ) : (
+                <div className="card p-8 bg-amber-50 border border-amber-200">
+                    <p className="text-amber-800 text-center">No tienes permisos para subir archivos de valorización</p>
+                </div>
+            )}
 
             {/* Preview de datos */}
             {showPreview && excelData.length > 0 && (
