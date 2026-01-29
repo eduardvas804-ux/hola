@@ -179,9 +179,9 @@ export default function MaquinariaPage() {
                 // Registrar cambio en historial
                 await registrarCambio('maquinaria', 'UPDATE', formData.codigo || editingItem.id, editingItem, formData, usuarioInfo);
             } else {
-                const result = await insertRow('maquinaria', formData);
+                await insertRow('maquinaria', formData);
                 // Registrar creación en historial
-                await registrarCambio('maquinaria', 'CREATE', formData.codigo || result?.id || '', null, formData, usuarioInfo);
+                await registrarCambio('maquinaria', 'CREATE', formData.codigo || '', null, formData, usuarioInfo);
             }
             fetchData();
             setShowModal(false);
