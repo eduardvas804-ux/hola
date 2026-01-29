@@ -7,6 +7,7 @@ import {
     Search,
     Download,
     TrendingUp,
+    TrendingDown,
     Calendar,
     Truck,
     DollarSign,
@@ -14,7 +15,10 @@ import {
     X,
     Edit,
     Trash2,
-    ChevronDown
+    ChevronDown,
+    Droplets,
+    ArrowDownCircle,
+    ArrowUpCircle
 } from 'lucide-react';
 import { fetchTable, insertRow, updateRow, deleteRow } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
@@ -24,15 +28,18 @@ import { useAuth } from '@/components/auth-provider';
 import { puedeVer, puedeCrear, puedeEditar, puedeEliminar, puedeExportar } from '@/lib/permisos';
 import { useRouter } from 'next/navigation';
 
+type TipoMovimiento = 'ENTRADA' | 'SALIDA';
+
 interface RegistroCombustible {
     id: string;
     fecha: string;
+    tipo_movimiento: TipoMovimiento;
     codigo_maquina: string;
     tipo_maquina?: string;
-    horometro: number;
+    horometro?: number;
     galones: number;
-    precio_galon: number;
-    total: number;
+    precio_galon?: number;
+    total?: number;
     proveedor?: string;
     numero_factura?: string;
     operador?: string;
@@ -41,11 +48,13 @@ interface RegistroCombustible {
 }
 
 const DEMO_COMBUSTIBLE: RegistroCombustible[] = [
-    { id: '1', fecha: '2026-01-28', codigo_maquina: 'EXC-01', tipo_maquina: 'EXCAVADORA', horometro: 15612, galones: 45, precio_galon: 14.50, total: 652.50, proveedor: 'GRIFO CENTRAL', operador: 'JOSE ABANTO' },
-    { id: '2', fecha: '2026-01-27', codigo_maquina: 'VOL-01', tipo_maquina: 'VOLQUETE', horometro: 45000, galones: 80, precio_galon: 14.50, total: 1160.00, proveedor: 'GRIFO CENTRAL', operador: 'MIGUEL TORRES' },
-    { id: '3', fecha: '2026-01-27', codigo_maquina: 'MOT-01', tipo_maquina: 'MOTONIVELADORA', horometro: 12420, galones: 35, precio_galon: 14.50, total: 507.50, proveedor: 'REPSOL', operador: 'CARLOS RUIZ' },
-    { id: '4', fecha: '2026-01-26', codigo_maquina: 'CAR-01', tipo_maquina: 'CARGADOR FRONTAL', horometro: 8900, galones: 50, precio_galon: 14.30, total: 715.00, proveedor: 'GRIFO CENTRAL', operador: 'PEDRO SILVA' },
-    { id: '5', fecha: '2026-01-25', codigo_maquina: 'CIST-01', tipo_maquina: 'CISTERNA DE AGUA', horometro: 23500, galones: 60, precio_galon: 14.50, total: 870.00, proveedor: 'PECSA', operador: 'JORG VASQUEZ' },
+    { id: '1', fecha: '2026-01-28', tipo_movimiento: 'ENTRADA', codigo_maquina: 'CISTERNA', galones: 500, precio_galon: 14.50, total: 7250, proveedor: 'PETROPERU', numero_factura: 'F001-00234', observaciones: 'Abastecimiento cisterna' },
+    { id: '2', fecha: '2026-01-28', tipo_movimiento: 'SALIDA', codigo_maquina: 'EXC-01', tipo_maquina: 'EXCAVADORA', horometro: 15612, galones: 45, operador: 'JOSE ABANTO', observaciones: 'Despacho en obra' },
+    { id: '3', fecha: '2026-01-27', tipo_movimiento: 'SALIDA', codigo_maquina: 'VOL-01', tipo_maquina: 'VOLQUETE', horometro: 45000, galones: 80, operador: 'MIGUEL TORRES' },
+    { id: '4', fecha: '2026-01-27', tipo_movimiento: 'SALIDA', codigo_maquina: 'MOT-01', tipo_maquina: 'MOTONIVELADORA', horometro: 12420, galones: 35, operador: 'CARLOS RUIZ' },
+    { id: '5', fecha: '2026-01-26', tipo_movimiento: 'SALIDA', codigo_maquina: 'CAR-01', tipo_maquina: 'CARGADOR FRONTAL', horometro: 8900, galones: 50, operador: 'PEDRO SILVA' },
+    { id: '6', fecha: '2026-01-25', tipo_movimiento: 'ENTRADA', codigo_maquina: 'CISTERNA', galones: 1000, precio_galon: 14.30, total: 14300, proveedor: 'REPSOL', numero_factura: 'F001-00198' },
+    { id: '7', fecha: '2026-01-25', tipo_movimiento: 'SALIDA', codigo_maquina: 'CIST-01', tipo_maquina: 'CISTERNA DE AGUA', horometro: 23500, galones: 60, operador: 'JORGE VASQUEZ' },
 ];
 
 export default function CombustiblePage() {
@@ -56,6 +65,7 @@ export default function CombustiblePage() {
     const [editingItem, setEditingItem] = useState<RegistroCombustible | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterMes, setFilterMes] = useState('');
+    const [filterTipo, setFilterTipo] = useState<TipoMovimiento | ''>('');
     const [filterCodigo, setFilterCodigo] = useState<string>('');
     const [showCodigoFilter, setShowCodigoFilter] = useState(false);
     const [searchCodigo, setSearchCodigo] = useState('');
@@ -66,6 +76,7 @@ export default function CombustiblePage() {
 
     const emptyForm: Partial<RegistroCombustible> = {
         fecha: new Date().toISOString().split('T')[0],
+        tipo_movimiento: 'SALIDA',
         codigo_maquina: '',
         horometro: 0,
         galones: 0,
@@ -88,10 +99,12 @@ export default function CombustiblePage() {
     }, [profile, userRole, router]);
 
     useEffect(() => {
-        // Calcular total automáticamente
-        const total = (formData.galones || 0) * (formData.precio_galon || 0);
-        setFormData(prev => ({ ...prev, total }));
-    }, [formData.galones, formData.precio_galon]);
+        // Calcular total automáticamente para entradas
+        if (formData.tipo_movimiento === 'ENTRADA') {
+            const total = (formData.galones || 0) * (formData.precio_galon || 0);
+            setFormData(prev => ({ ...prev, total }));
+        }
+    }, [formData.galones, formData.precio_galon, formData.tipo_movimiento]);
 
     async function fetchData() {
         try {
@@ -115,8 +128,8 @@ export default function CombustiblePage() {
         }
     }
 
-    function openCreateModal() {
-        setFormData(emptyForm);
+    function openCreateModal(tipo: TipoMovimiento) {
+        setFormData({ ...emptyForm, tipo_movimiento: tipo, codigo_maquina: tipo === 'ENTRADA' ? 'CISTERNA' : '' });
         setEditingItem(null);
         setShowModal(true);
     }
@@ -177,12 +190,13 @@ export default function CombustiblePage() {
     function handleExport() {
         const data = registros.map(r => ({
             'Fecha': r.fecha,
+            'Tipo': r.tipo_movimiento,
             'Código': r.codigo_maquina,
-            'Tipo': r.tipo_maquina || '',
-            'Horómetro': r.horometro,
+            'Tipo Máquina': r.tipo_maquina || '',
+            'Horómetro': r.horometro || '',
             'Galones': r.galones,
-            'Precio/Galón': r.precio_galon,
-            'Total S/': r.total,
+            'Precio/Galón': r.precio_galon || '',
+            'Total S/': r.total || '',
             'Proveedor': r.proveedor || '',
             'Factura': r.numero_factura || '',
             'Operador': r.operador || ''
@@ -190,26 +204,25 @@ export default function CombustiblePage() {
         exportToExcel(data, 'Combustible_' + new Date().toISOString().split('T')[0], 'Combustible');
     }
 
-    // Obtener códigos únicos para el filtro deslizable
-    const codigosUnicos = [...new Set(registros.map(r => r.codigo_maquina))].sort();
+    // Códigos únicos para dropdown (excluyendo CISTERNA de las salidas)
+    const codigosUnicos = [...new Set(registros.filter(r => r.tipo_movimiento === 'SALIDA').map(r => r.codigo_maquina))].sort();
 
     const filteredRegistros = registros.filter(r => {
         const matchSearch = r.codigo_maquina.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (r.operador || '').toLowerCase().includes(searchTerm.toLowerCase());
         const matchMes = !filterMes || r.fecha.startsWith(filterMes);
+        const matchTipo = !filterTipo || r.tipo_movimiento === filterTipo;
         const matchCodigo = !filterCodigo || r.codigo_maquina === filterCodigo;
-        return matchSearch && matchMes && matchCodigo;
+        return matchSearch && matchMes && matchTipo && matchCodigo;
     });
 
     // Estadísticas
-    const stats = {
-        totalGalones: filteredRegistros.reduce((sum, r) => sum + r.galones, 0),
-        totalSoles: filteredRegistros.reduce((sum, r) => sum + r.total, 0),
-        promedioGalon: filteredRegistros.length > 0
-            ? filteredRegistros.reduce((sum, r) => sum + r.precio_galon, 0) / filteredRegistros.length
-            : 0,
-        registros: filteredRegistros.length
-    };
+    const entradas = registros.filter(r => r.tipo_movimiento === 'ENTRADA');
+    const salidas = registros.filter(r => r.tipo_movimiento === 'SALIDA');
+    const totalEntradas = entradas.reduce((sum, r) => sum + r.galones, 0);
+    const totalSalidas = salidas.reduce((sum, r) => sum + r.galones, 0);
+    const stockCisterna = totalEntradas - totalSalidas;
+    const totalGastado = entradas.reduce((sum, r) => sum + (r.total || 0), 0);
 
     if (loading) {
         return <div className="flex items-center justify-center h-96"><div className="spinner"></div></div>;
@@ -224,9 +237,9 @@ export default function CombustiblePage() {
                         <Fuel className="text-amber-500" />
                         Control de Combustible
                     </h1>
-                    <p className="text-gray-500 mt-1">Registro de consumo de combustible</p>
+                    <p className="text-gray-500 mt-1">Gestión de cisterna y despacho de combustible</p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-2">
                     {puedeExportar(userRole, 'combustible') && (
                         <button onClick={handleExport} className="btn btn-outline">
                             <Download size={18} />
@@ -235,57 +248,63 @@ export default function CombustiblePage() {
                     )}
                     {usingDemo && <span className="bg-amber-100 text-amber-800 px-3 py-2 rounded-lg text-sm">Demo</span>}
                     {puedeCrear(userRole, 'combustible') && (
-                        <button onClick={openCreateModal} className="btn btn-primary">
-                            <Plus size={20} />
-                            Nuevo Registro
-                        </button>
+                        <>
+                            <button onClick={() => openCreateModal('ENTRADA')} className="btn btn-secondary">
+                                <ArrowDownCircle size={18} />
+                                Abastecer Cisterna
+                            </button>
+                            <button onClick={() => openCreateModal('SALIDA')} className="btn btn-primary">
+                                <ArrowUpCircle size={18} />
+                                Despachar
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
 
-            {/* Stats */}
+            {/* Stats - Stock Cisterna */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="card p-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
-                            <Fuel className="text-amber-600" size={24} />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-gray-800">{formatNumber(stats.totalGalones)}</p>
-                            <p className="text-sm text-gray-500">Galones</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="card p-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
-                            <DollarSign className="text-green-600" size={24} />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-gray-800">S/ {formatNumber(stats.totalSoles)}</p>
-                            <p className="text-sm text-gray-500">Total Gastado</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="card p-4">
+                <div className="card p-4 border-l-4 border-blue-500">
                     <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-                            <TrendingUp className="text-blue-600" size={24} />
+                            <Droplets className="text-blue-600" size={24} />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-gray-800">S/ {stats.promedioGalon.toFixed(2)}</p>
-                            <p className="text-sm text-gray-500">Precio Promedio</p>
+                            <p className="text-2xl font-bold text-blue-600">{formatNumber(stockCisterna)}</p>
+                            <p className="text-sm text-gray-500">Stock Cisterna (gal)</p>
                         </div>
                     </div>
                 </div>
-                <div className="card p-4">
+                <div className="card p-4 border-l-4 border-green-500">
                     <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
-                            <Calendar className="text-purple-600" size={24} />
+                        <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+                            <TrendingDown className="text-green-600" size={24} />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-gray-800">{stats.registros}</p>
-                            <p className="text-sm text-gray-500">Registros</p>
+                            <p className="text-2xl font-bold text-green-600">{formatNumber(totalEntradas)}</p>
+                            <p className="text-sm text-gray-500">Total Entradas (gal)</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="card p-4 border-l-4 border-amber-500">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+                            <TrendingUp className="text-amber-600" size={24} />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-amber-600">{formatNumber(totalSalidas)}</p>
+                            <p className="text-sm text-gray-500">Total Despachado (gal)</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="card p-4 border-l-4 border-purple-500">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                            <DollarSign className="text-purple-600" size={24} />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-purple-600">S/ {formatNumber(totalGastado)}</p>
+                            <p className="text-sm text-gray-500">Total Invertido</p>
                         </div>
                     </div>
                 </div>
@@ -294,21 +313,32 @@ export default function CombustiblePage() {
             {/* Filtros */}
             <div className="card p-4">
                 <div className="flex flex-col sm:flex-row gap-4">
-                    {/* Filtro desplegable estilo Excel */}
-                    <div className="relative sm:w-64">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Filtrar por Código</label>
+                    {/* Tipo de movimiento */}
+                    <div className="sm:w-40">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+                        <select
+                            className="input w-full"
+                            value={filterTipo}
+                            onChange={(e) => setFilterTipo(e.target.value as TipoMovimiento | '')}
+                        >
+                            <option value="">Todos</option>
+                            <option value="ENTRADA">Entradas</option>
+                            <option value="SALIDA">Salidas</option>
+                        </select>
+                    </div>
+
+                    {/* Dropdown filtro por código */}
+                    <div className="relative sm:w-56">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Equipo</label>
                         <div className="relative">
                             <button
                                 onClick={() => setShowCodigoFilter(!showCodigoFilter)}
                                 className="w-full input flex items-center justify-between text-left"
                             >
                                 <span className={filterCodigo ? 'text-gray-800' : 'text-gray-400'}>
-                                    {filterCodigo || 'Seleccionar código...'}
+                                    {filterCodigo || 'Todos...'}
                                 </span>
-                                <ChevronDown
-                                    size={18}
-                                    className={`text-gray-400 transition-transform ${showCodigoFilter ? 'rotate-180' : ''}`}
-                                />
+                                <ChevronDown size={18} className={`text-gray-400 transition-transform ${showCodigoFilter ? 'rotate-180' : ''}`} />
                             </button>
 
                             {showCodigoFilter && (
@@ -318,7 +348,7 @@ export default function CombustiblePage() {
                                             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                             <input
                                                 type="text"
-                                                placeholder="Buscar código..."
+                                                placeholder="Buscar..."
                                                 className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                                                 value={searchCodigo}
                                                 onChange={(e) => setSearchCodigo(e.target.value)}
@@ -329,11 +359,15 @@ export default function CombustiblePage() {
                                     <div className="overflow-y-auto max-h-52">
                                         <button
                                             onClick={() => { setFilterCodigo(''); setShowCodigoFilter(false); setSearchCodigo(''); }}
-                                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                                                !filterCodigo ? 'bg-amber-50 text-amber-700 font-medium' : 'text-gray-700'
-                                            }`}
+                                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${!filterCodigo ? 'bg-amber-50 text-amber-700 font-medium' : 'text-gray-700'}`}
                                         >
                                             Todos
+                                        </button>
+                                        <button
+                                            onClick={() => { setFilterCodigo('CISTERNA'); setShowCodigoFilter(false); setSearchCodigo(''); }}
+                                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${filterCodigo === 'CISTERNA' ? 'bg-amber-50 text-amber-700 font-medium' : 'text-gray-700'}`}
+                                        >
+                                            <Fuel size={16} /> CISTERNA (Abastecimientos)
                                         </button>
                                         {codigosUnicos
                                             .filter(c => c.toLowerCase().includes(searchCodigo.toLowerCase()))
@@ -341,9 +375,7 @@ export default function CombustiblePage() {
                                                 <button
                                                     key={codigo}
                                                     onClick={() => { setFilterCodigo(codigo); setShowCodigoFilter(false); setSearchCodigo(''); }}
-                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${
-                                                        filterCodigo === codigo ? 'bg-amber-50 text-amber-700 font-medium' : 'text-gray-700'
-                                                    }`}
+                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${filterCodigo === codigo ? 'bg-amber-50 text-amber-700 font-medium' : 'text-gray-700'}`}
                                                 >
                                                     <span>{ICONOS_MAQUINARIA[registros.find(r => r.codigo_maquina === codigo)?.tipo_maquina as TipoMaquinaria] || '🚜'}</span>
                                                     {codigo}
@@ -355,23 +387,8 @@ export default function CombustiblePage() {
                         </div>
                     </div>
 
-                    {/* Búsqueda general */}
-                    <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                            <input
-                                type="text"
-                                placeholder="Buscar por operador..."
-                                className="input pl-10 w-full"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Filtro por mes */}
-                    <div className="sm:w-48">
+                    {/* Mes */}
+                    <div className="sm:w-44">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Mes</label>
                         <input
                             type="month"
@@ -381,10 +398,25 @@ export default function CombustiblePage() {
                         />
                     </div>
 
-                    {/* Limpiar filtros */}
-                    {(filterCodigo || searchTerm || filterMes) && (
+                    {/* Búsqueda */}
+                    <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                            <input
+                                type="text"
+                                placeholder="Operador..."
+                                className="input pl-10 w-full"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Limpiar */}
+                    {(filterCodigo || searchTerm || filterMes || filterTipo) && (
                         <button
-                            onClick={() => { setFilterCodigo(''); setSearchTerm(''); setFilterMes(''); }}
+                            onClick={() => { setFilterCodigo(''); setSearchTerm(''); setFilterMes(''); setFilterTipo(''); }}
                             className="self-end px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-1"
                         >
                             <X size={16} /> Limpiar
@@ -395,38 +427,51 @@ export default function CombustiblePage() {
 
             {/* Tabla */}
             <div className="card overflow-hidden">
+                <div className="p-4 border-b bg-gray-50">
+                    <h2 className="font-bold text-gray-800">Movimientos de Combustible</h2>
+                </div>
                 <div className="overflow-x-auto">
                     <table className="data-table">
                         <thead>
                             <tr>
                                 <th>Fecha</th>
-                                <th>Código</th>
+                                <th>Tipo</th>
+                                <th>Equipo</th>
                                 <th>Horómetro</th>
                                 <th>Galones</th>
                                 <th>Precio</th>
                                 <th>Total</th>
-                                <th>Proveedor</th>
+                                <th>Proveedor/Operador</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredRegistros.length === 0 ? (
-                                <tr><td colSpan={8} className="text-center py-8 text-gray-500">No hay registros</td></tr>
+                                <tr><td colSpan={9} className="text-center py-8 text-gray-500">No hay registros</td></tr>
                             ) : (
                                 filteredRegistros.map((r) => (
-                                    <tr key={r.id}>
+                                    <tr key={r.id} className={r.tipo_movimiento === 'ENTRADA' ? 'bg-green-50/50' : ''}>
                                         <td>{new Date(r.fecha).toLocaleDateString('es-PE')}</td>
                                         <td>
+                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                                r.tipo_movimiento === 'ENTRADA'
+                                                    ? 'bg-green-100 text-green-700'
+                                                    : 'bg-amber-100 text-amber-700'
+                                            }`}>
+                                                {r.tipo_movimiento === 'ENTRADA' ? '↓ Entrada' : '↑ Salida'}
+                                            </span>
+                                        </td>
+                                        <td>
                                             <div className="flex items-center gap-2">
-                                                <span>{ICONOS_MAQUINARIA[r.tipo_maquina as TipoMaquinaria] || '🚜'}</span>
+                                                <span>{r.codigo_maquina === 'CISTERNA' ? '⛽' : ICONOS_MAQUINARIA[r.tipo_maquina as TipoMaquinaria] || '🚜'}</span>
                                                 <span className="font-bold">{r.codigo_maquina}</span>
                                             </div>
                                         </td>
-                                        <td>{formatNumber(r.horometro)}</td>
+                                        <td>{r.horometro ? formatNumber(r.horometro) : '-'}</td>
                                         <td className="font-semibold text-amber-600">{r.galones}</td>
-                                        <td>S/ {r.precio_galon.toFixed(2)}</td>
-                                        <td className="font-bold text-green-600">S/ {r.total.toFixed(2)}</td>
-                                        <td>{r.proveedor || '-'}</td>
+                                        <td>{r.precio_galon ? `S/ ${r.precio_galon.toFixed(2)}` : '-'}</td>
+                                        <td className="font-bold text-green-600">{r.total ? `S/ ${r.total.toFixed(2)}` : '-'}</td>
+                                        <td>{r.tipo_movimiento === 'ENTRADA' ? r.proveedor : r.operador || '-'}</td>
                                         <td>
                                             <div className="flex gap-2">
                                                 {puedeEditar(userRole, 'combustible') && (
@@ -454,7 +499,13 @@ export default function CombustiblePage() {
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
                     <div className="modal-content max-w-lg" onClick={e => e.stopPropagation()}>
                         <div className="p-6 border-b flex justify-between items-center">
-                            <h2 className="text-xl font-bold">{editingItem ? 'Editar Registro' : 'Nuevo Registro'}</h2>
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                {formData.tipo_movimiento === 'ENTRADA' ? (
+                                    <><ArrowDownCircle className="text-green-600" /> Abastecer Cisterna</>
+                                ) : (
+                                    <><ArrowUpCircle className="text-amber-600" /> Despachar Combustible</>
+                                )}
+                            </h2>
                             <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
                                 <X size={20} />
                             </button>
@@ -471,33 +522,6 @@ export default function CombustiblePage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="label">Código Máquina *</label>
-                                    <select
-                                        className="input"
-                                        value={formData.codigo_maquina}
-                                        onChange={(e) => setFormData({ ...formData, codigo_maquina: e.target.value })}
-                                    >
-                                        <option value="">Seleccionar...</option>
-                                        {maquinaria.map(m => (
-                                            <option key={m.id} value={m.codigo}>{m.codigo} - {m.tipo}</option>
-                                        ))}
-                                        {maquinaria.length === 0 && DEMO_COMBUSTIBLE.map(d => (
-                                            <option key={d.codigo_maquina} value={d.codigo_maquina}>{d.codigo_maquina}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="label">Horómetro</label>
-                                    <input
-                                        type="number"
-                                        className="input"
-                                        value={formData.horometro}
-                                        onChange={(e) => setFormData({ ...formData, horometro: parseFloat(e.target.value) || 0 })}
-                                    />
-                                </div>
-                                <div>
                                     <label className="label">Galones *</label>
                                     <input
                                         type="number"
@@ -508,56 +532,96 @@ export default function CombustiblePage() {
                                     />
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="label">Precio por Galón (S/)</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        className="input"
-                                        value={formData.precio_galon}
-                                        onChange={(e) => setFormData({ ...formData, precio_galon: parseFloat(e.target.value) || 0 })}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="label">Total (S/)</label>
-                                    <input
-                                        type="number"
-                                        className="input bg-gray-100"
-                                        value={formData.total?.toFixed(2)}
-                                        readOnly
-                                    />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="label">Proveedor</label>
-                                    <input
-                                        type="text"
-                                        className="input"
-                                        value={formData.proveedor}
-                                        onChange={(e) => setFormData({ ...formData, proveedor: e.target.value })}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="label">N° Factura</label>
-                                    <input
-                                        type="text"
-                                        className="input"
-                                        value={formData.numero_factura}
-                                        onChange={(e) => setFormData({ ...formData, numero_factura: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="label">Operador</label>
-                                <input
-                                    type="text"
-                                    className="input"
-                                    value={formData.operador}
-                                    onChange={(e) => setFormData({ ...formData, operador: e.target.value })}
-                                />
-                            </div>
+
+                            {formData.tipo_movimiento === 'ENTRADA' ? (
+                                // Campos para ENTRADA (abastecimiento cisterna)
+                                <>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="label">Precio por Galón (S/)</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                className="input"
+                                                value={formData.precio_galon}
+                                                onChange={(e) => setFormData({ ...formData, precio_galon: parseFloat(e.target.value) || 0 })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="label">Total (S/)</label>
+                                            <input
+                                                type="number"
+                                                className="input bg-gray-100"
+                                                value={formData.total?.toFixed(2)}
+                                                readOnly
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="label">Proveedor</label>
+                                            <input
+                                                type="text"
+                                                className="input"
+                                                placeholder="Ej: PETROPERU"
+                                                value={formData.proveedor}
+                                                onChange={(e) => setFormData({ ...formData, proveedor: e.target.value })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="label">N° Factura</label>
+                                            <input
+                                                type="text"
+                                                className="input"
+                                                placeholder="Ej: F001-00234"
+                                                value={formData.numero_factura}
+                                                onChange={(e) => setFormData({ ...formData, numero_factura: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                // Campos para SALIDA (despacho)
+                                <>
+                                    <div>
+                                        <label className="label">Equipo *</label>
+                                        <select
+                                            className="input"
+                                            value={formData.codigo_maquina}
+                                            onChange={(e) => setFormData({ ...formData, codigo_maquina: e.target.value })}
+                                        >
+                                            <option value="">Seleccionar...</option>
+                                            {maquinaria.map(m => (
+                                                <option key={m.id} value={m.codigo}>{m.codigo} - {m.tipo}</option>
+                                            ))}
+                                            {maquinaria.length === 0 && codigosUnicos.map(c => (
+                                                <option key={c} value={c}>{c}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="label">Horómetro</label>
+                                            <input
+                                                type="number"
+                                                className="input"
+                                                value={formData.horometro}
+                                                onChange={(e) => setFormData({ ...formData, horometro: parseFloat(e.target.value) || 0 })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="label">Operador</label>
+                                            <input
+                                                type="text"
+                                                className="input"
+                                                value={formData.operador}
+                                                onChange={(e) => setFormData({ ...formData, operador: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
                             <div>
                                 <label className="label">Observaciones</label>
                                 <textarea
