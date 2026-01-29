@@ -91,13 +91,16 @@ export async function registrarCambio(
     }
 
     try {
+        // usuario_id debe ser UUID válido o null
+        const isValidUUID = usuario.id && usuario.id !== 'demo' && usuario.id.length > 10;
+
         const body = {
             tabla,
             accion,
             registro_id: registroId,
             datos_anteriores: datosAnteriores,
             datos_nuevos: datosNuevos,
-            usuario_id: usuario.id,
+            usuario_id: isValidUUID ? usuario.id : null,
             usuario_email: usuario.email,
             usuario_nombre: usuario.nombre
         };
