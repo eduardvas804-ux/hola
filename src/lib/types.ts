@@ -139,3 +139,51 @@ export interface UserProfile {
   estado: boolean;
   created_at?: string;
 }
+
+// Historial de cambios (auditoría)
+export interface HistorialCambio {
+  id: string;
+  tabla: string;
+  accion: 'INSERT' | 'UPDATE' | 'DELETE';
+  registro_id: string;
+  datos_anteriores: any;
+  datos_nuevos: any;
+  usuario_id: string;
+  usuario_email: string;
+  usuario_nombre: string;
+  created_at: string;
+}
+
+// Vista unificada de maquinaria (vinculada por código)
+export interface MaquinariaCompleta {
+  // Datos base
+  codigo: string;
+  placa?: string;
+  tipo: TipoMaquinaria;
+  modelo: string;
+  marca: string;
+  estado: EstadoMaquinaria;
+  horas_actuales: number;
+
+  // Mantenimiento
+  mantenimiento?: {
+    ultimo: number;
+    proximo: number;
+    diferencia: number;
+    estado_alerta: EstadoAlerta;
+  };
+
+  // Documentos
+  soat?: {
+    fecha_vencimiento: string;
+    dias_restantes: number;
+  };
+
+  citv?: {
+    fecha_vencimiento: string;
+    dias_restantes: number;
+  };
+
+  // Filtros
+  filtros?: Filtro;
+}

@@ -18,7 +18,8 @@ import {
     LogOut,
     Users,
     Shield,
-    X
+    X,
+    History
 } from 'lucide-react';
 
 const menuItems = [
@@ -124,6 +125,20 @@ export default function Sidebar() {
                                     <Users size={22} className="text-amber-400" />
                                     {(!collapsed || isMobile) && (
                                         <span className="font-medium">Gestión Usuarios</span>
+                                    )}
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href="/historial"
+                                    onClick={handleLinkClick}
+                                    className={`sidebar-link flex items-center gap-3 px-4 py-3 text-white/80 hover:text-white ${pathname === '/historial' ? 'active text-white' : ''
+                                        }`}
+                                    title={collapsed && !isMobile ? 'Historial' : undefined}
+                                >
+                                    <History size={22} className="text-cyan-400" />
+                                    {(!collapsed || isMobile) && (
+                                        <span className="font-medium">Historial Cambios</span>
                                     )}
                                 </Link>
                             </li>

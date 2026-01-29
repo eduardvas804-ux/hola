@@ -91,6 +91,93 @@ export default function FiltrosPage() {
         })), 'Lista_Compras_' + new Date().toISOString().split('T')[0], 'Lista_Compras');
     }
 
+    function handlePrint() {
+        const lista = generarListaCompras();
+        const selectedFiltros = filtros.filter(f => selectedItems.includes(f.id));
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Lista de Compras - Filtros</title>
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body { font-family: Arial, sans-serif; padding: 20px; }
+                    .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1E3A5F; padding-bottom: 20px; }
+                    .header h1 { color: #1E3A5F; font-size: 24px; }
+                    .header p { color: #666; margin-top: 5px; }
+                    .date { text-align: right; color: #666; margin-bottom: 20px; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+                    th { background: #1E3A5F; color: white; padding: 12px 8px; text-align: left; }
+                    td { padding: 10px 8px; border-bottom: 1px solid #ddd; }
+                    tr:hover { background: #f5f5f5; }
+                    .cantidad { text-align: center; font-weight: bold; }
+                    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; }
+                    .footer p { color: #666; font-size: 12px; }
+                    .equipos { margin-top: 30px; }
+                    .equipos h3 { color: #1E3A5F; margin-bottom: 10px; }
+                    .equipos ul { list-style: none; columns: 2; }
+                    .equipos li { padding: 5px 0; font-size: 12px; }
+                    @media print {
+                        body { padding: 0; }
+                        .no-print { display: none; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>LISTA DE COMPRAS - FILTROS</h1>
+                    <p>MAQUINARIA PRO - Grupo Vásquez</p>
+                </div>
+                <div class="date">Fecha: ${new Date().toLocaleDateString('es-PE')}</div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>N°</th>
+                            <th>Código Filtro</th>
+                            <th>Descripción</th>
+                            <th style="text-align: center;">Cantidad</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${lista.map((item, i) => `
+                            <tr>
+                                <td>${i + 1}</td>
+                                <td><strong>${item.codigo}</strong></td>
+                                <td>${item.descripcion}</td>
+                                <td class="cantidad">${item.cantidad}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+
+                <div class="equipos">
+                    <h3>Equipos Seleccionados (${selectedFiltros.length}):</h3>
+                    <ul>
+                        ${selectedFiltros.map(f => `<li>• ${f.maquinaria_codigo} - ${f.maquinaria_descripcion}</li>`).join('')}
+                    </ul>
+                </div>
+
+                <div class="footer">
+                    <p>Total: ${lista.length} tipos de filtros</p>
+                    <p>Generado el ${new Date().toLocaleString('es-PE')}</p>
+                </div>
+
+                <script>
+                    window.onload = function() { window.print(); }
+                </script>
+            </body>
+            </html>
+        `;
+
+        printWindow.document.write(html);
+        printWindow.document.close();
+    }
+
     // Generar lista de compras consolidada
     function generarListaCompras() {
         const listaConsolidada: Record<string, { codigo: string; descripcion: string; cantidad: number }> = {};
@@ -311,7 +398,7 @@ export default function FiltrosPage() {
                                     <Download size={18} />
                                     Exportar Excel
                                 </button>
-                                <button className="btn btn-primary">
+                                <button onClick={handlePrint} className="btn btn-primary">
                                     <Printer size={18} />
                                     Imprimir
                                 </button>

@@ -73,3 +73,87 @@ export async function deleteRows(table: string, ids: string[]): Promise<boolean>
     });
     return response.ok;
 }
+
+// Registrar cambio en historial
+export async function registrarCambio(
+    tabla: string,
+    accion: 'INSERT' | 'UPDATE' | 'DELETE',
+    registroId: string,
+    datosAnteriores: any,
+    datosNuevos: any,
+    usuario: { id: string; email: string; nombre: string }
+): Promise<boolean> {
+    if (!isConfigured()) return false;
+
+    try {
+        const response = await fetch(`${SUPABASE_URL}/historial_cambios`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({
+                tabla,
+                accion,
+                registro_id: registroId,
+                datos_anteriores: datosAnteriores,
+                datos_nuevos: datosNuevos,
+                usuario_id: usuario.id,
+                usuario_email: usuario.email,
+                usuario_nombre: usuario.nombre
+            })
+        });
+        return response.ok;
+    } catch (error) {
+        console.error('Error registrando historial:', error);
+        return false;
+    }
+}
+
+// Vincular máquinas: obtener datos completos por código
+export async function getMaquinariaCompleta(codigo: string): Promise<any> {
+    if (!isConfigured()) return null;
+
+    try {
+        // Obtener datos de todas las tablas relacionadas en paralelo
+        const [maquinaria, mantenimientos, soat, citv, filtros] = await Promise.all([
+            fetchTable<any>('maquinaria', `&codigo=eq.${codigo}`),
+            fetchTable<any>('mantenimientos', `&codigo_maquina=eq.${codigo}`),
+            fetchTable<any>('soat', `&codigo=eq.${codigo}`),
+            fetchTable<any>('citv', `&codigo=eq.${codigo}`),
+            fetchTable<any>('filtros', `&maquinaria_codigo=eq.${codigo}`)
+        ]);
+
+        if (!maquinaria?.[0]) return null;
+
+        return {
+            ...maquinaria[0],
+            mantenimiento: mantenimientos?.[0] || null,
+            soat: soat?.[0] || null,
+            citv: citv?.[0] || null,
+            filtros: filtros?.[0] || null
+        };
+    } catch (error) {
+        console.error('Error obteniendo maquinaria completa:', error);
+        return null;
+    }
+}
+
+// Buscar máquina por código o placa
+export async function buscarMaquinaria(termino: string): Promise<any[]> {
+    if (!isConfigured()) return [];
+
+    try {
+        const terminoLower = termino.toLowerCase();
+
+        // Buscar en maquinaria por código
+        const maquinaria = await fetchTable<any>('maquinaria');
+        const resultados = maquinaria.filter(m =>
+            m.codigo?.toLowerCase().includes(terminoLower) ||
+            m.placa?.toLowerCase().includes(terminoLower) ||
+            m.serie?.toLowerCase().includes(terminoLower)
+        );
+
+        return resultados;
+    } catch (error) {
+        console.error('Error buscando maquinaria:', error);
+        return [];
+    }
+}
