@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Wrench,
     AlertTriangle,
@@ -12,8 +12,7 @@ import {
     Download,
     Edit,
     Pencil,
-    ChevronLeft,
-    ChevronRight,
+    ChevronDown,
     Search
 } from 'lucide-react';
 import { fetchTable, updateRow } from '@/lib/api';
@@ -45,8 +44,8 @@ export default function MantenimientosPage() {
     const [editForm, setEditForm] = useState<any>({});
     const [filterEstado, setFilterEstado] = useState<string>('');
     const [filterCodigo, setFilterCodigo] = useState<string>('');
+    const [showCodigoFilter, setShowCodigoFilter] = useState(false);
     const [usingDemo, setUsingDemo] = useState(true);
-    const scrollRef = useRef<HTMLDivElement>(null);
     const { profile } = useAuth();
     const router = useRouter();
     const userRole = profile?.rol as Role;
@@ -82,18 +81,6 @@ export default function MantenimientosPage() {
     const filteredData = mantenimientos
         .filter(m => !filterEstado || m.estado_alerta === filterEstado)
         .filter(m => !filterCodigo || m.codigo_maquina === filterCodigo);
-
-    // Funciones para scroll horizontal
-    const scrollLeft = () => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollBy({ left: -200, behavior: 'smooth' });
-        }
-    };
-    const scrollRight = () => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollBy({ left: 200, behavior: 'smooth' });
-        }
-    };
 
     const stats = {
         vencido: mantenimientos.filter(m => m.estado_alerta === 'VENCIDO').length,
@@ -284,66 +271,66 @@ export default function MantenimientosPage() {
                 </button>
             </div>
 
-            {/* Barra de búsqueda deslizable por código */}
-            <div className="card p-4">
-                <div className="flex items-center gap-2 mb-3">
-                    <Search size={18} className="text-gray-400" />
-                    <span className="text-sm font-medium text-gray-600">Filtrar por Código:</span>
-                    {filterCodigo && (
-                        <button
-                            onClick={() => setFilterCodigo('')}
-                            className="ml-auto text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                        >
-                            <X size={14} /> Limpiar
-                        </button>
-                    )}
-                </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={scrollLeft}
-                        className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors shrink-0"
-                    >
-                        <ChevronLeft size={20} />
-                    </button>
-                    <div
-                        ref={scrollRef}
-                        className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth flex-1"
-                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                    >
-                        <button
-                            onClick={() => setFilterCodigo('')}
-                            className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all shrink-0 ${
-                                !filterCodigo
-                                    ? 'bg-blue-600 text-white shadow-lg'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                        >
-                            Todos
-                        </button>
-                        {codigosUnicos.map(codigo => (
+            {/* Menú desplegable de filtro por código */}
+            <div className="card overflow-hidden">
+                <button
+                    onClick={() => setShowCodigoFilter(!showCodigoFilter)}
+                    className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                >
+                    <div className="flex items-center gap-3">
+                        <Search size={20} className="text-blue-600" />
+                        <div className="text-left">
+                            <p className="font-medium text-gray-800">Filtrar por Código</p>
+                            <p className="text-sm text-gray-500">
+                                {filterCodigo ? `Seleccionado: ${filterCodigo}` : 'Todos los equipos'}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {filterCodigo && (
+                            <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                                1 filtro
+                            </span>
+                        )}
+                        <ChevronDown
+                            size={20}
+                            className={`text-gray-400 transition-transform duration-200 ${showCodigoFilter ? 'rotate-180' : ''}`}
+                        />
+                    </div>
+                </button>
+
+                {showCodigoFilter && (
+                    <div className="border-t bg-gray-50 p-4">
+                        <div className="flex flex-wrap gap-2">
                             <button
-                                key={codigo}
-                                onClick={() => setFilterCodigo(codigo)}
-                                className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all shrink-0 flex items-center gap-2 ${
-                                    filterCodigo === codigo
+                                onClick={() => { setFilterCodigo(''); setShowCodigoFilter(false); }}
+                                className={`px-4 py-2 rounded-lg transition-all ${
+                                    !filterCodigo
                                         ? 'bg-blue-600 text-white shadow-lg'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                                 }`}
                             >
-                                <span className="text-lg">
-                                    {ICONOS_MAQUINARIA[mantenimientos.find(m => m.codigo_maquina === codigo)?.tipo as TipoMaquinaria] || '🔧'}
-                                </span>
-                                {codigo}
+                                Todos
                             </button>
-                        ))}
+                            {codigosUnicos.map(codigo => (
+                                <button
+                                    key={codigo}
+                                    onClick={() => { setFilterCodigo(codigo); setShowCodigoFilter(false); }}
+                                    className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 ${
+                                        filterCodigo === codigo
+                                            ? 'bg-blue-600 text-white shadow-lg'
+                                            : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                                    }`}
+                                >
+                                    <span className="text-lg">
+                                        {ICONOS_MAQUINARIA[mantenimientos.find(m => m.codigo_maquina === codigo)?.tipo as TipoMaquinaria] || '🔧'}
+                                    </span>
+                                    {codigo}
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                    <button
-                        onClick={scrollRight}
-                        className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors shrink-0"
-                    >
-                        <ChevronRight size={20} />
-                    </button>
-                </div>
+                )}
             </div>
 
             {/* Table */}
