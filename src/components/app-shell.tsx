@@ -4,12 +4,12 @@ import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/auth-provider';
 import { useSidebar } from '@/components/sidebar-context';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Menu } from 'lucide-react';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const { loading } = useAuth();
-    const { collapsed } = useSidebar();
+    const { collapsed, isMobile, toggleMobile } = useSidebar();
     const isLoginPage = pathname === '/login';
 
     if (loading) {
@@ -30,7 +30,27 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return (
         <div className="flex min-h-screen bg-slate-50">
             <Sidebar />
-            <main className={`flex-1 p-8 transition-all duration-300 ${collapsed ? 'ml-20' : 'ml-64'}`}>
+
+            {/* Header móvil */}
+            {isMobile && (
+                <header className="fixed top-0 left-0 right-0 h-16 bg-gradient-to-r from-[#1E3A5F] to-[#152a43] z-30 flex items-center px-4 shadow-lg">
+                    <button
+                        onClick={toggleMobile}
+                        className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+                    >
+                        <Menu size={24} />
+                    </button>
+                    <div className="ml-3 flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold shadow">
+                            M
+                        </div>
+                        <span className="text-white font-semibold">MAQUINARIA PRO</span>
+                    </div>
+                </header>
+            )}
+
+            <main className={`flex-1 transition-all duration-300
+                ${isMobile ? 'ml-0 pt-16 p-4' : collapsed ? 'ml-20 p-8' : 'ml-64 p-8'}`}>
                 {children}
             </main>
         </div>
