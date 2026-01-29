@@ -58,6 +58,7 @@ export default function CombustiblePage() {
     const [filterMes, setFilterMes] = useState('');
     const [filterCodigo, setFilterCodigo] = useState<string>('');
     const [showCodigoFilter, setShowCodigoFilter] = useState(false);
+    const [searchCodigo, setSearchCodigo] = useState('');
     const [usingDemo, setUsingDemo] = useState(true);
     const { profile } = useAuth();
     const router = useRouter();
@@ -290,85 +291,105 @@ export default function CombustiblePage() {
                 </div>
             </div>
 
-            {/* Menú desplegable de filtro por código */}
-            <div className="card overflow-hidden">
-                <button
-                    onClick={() => setShowCodigoFilter(!showCodigoFilter)}
-                    className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-                >
-                    <div className="flex items-center gap-3">
-                        <Search size={20} className="text-amber-600" />
-                        <div className="text-left">
-                            <p className="font-medium text-gray-800">Filtrar por Código</p>
-                            <p className="text-sm text-gray-500">
-                                {filterCodigo ? `Seleccionado: ${filterCodigo}` : 'Todos los registros'}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {filterCodigo && (
-                            <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-full font-medium">
-                                1 filtro
-                            </span>
-                        )}
-                        <ChevronDown
-                            size={20}
-                            className={`text-gray-400 transition-transform duration-200 ${showCodigoFilter ? 'rotate-180' : ''}`}
-                        />
-                    </div>
-                </button>
-
-                {showCodigoFilter && (
-                    <div className="border-t bg-gray-50 p-4">
-                        <div className="flex flex-wrap gap-2">
-                            <button
-                                onClick={() => { setFilterCodigo(''); setShowCodigoFilter(false); }}
-                                className={`px-4 py-2 rounded-lg transition-all ${
-                                    !filterCodigo
-                                        ? 'bg-amber-600 text-white shadow-lg'
-                                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-                                }`}
-                            >
-                                Todos
-                            </button>
-                            {codigosUnicos.map(codigo => (
-                                <button
-                                    key={codigo}
-                                    onClick={() => { setFilterCodigo(codigo); setShowCodigoFilter(false); }}
-                                    className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 ${
-                                        filterCodigo === codigo
-                                            ? 'bg-amber-600 text-white shadow-lg'
-                                            : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-                                    }`}
-                                >
-                                    <span>{ICONOS_MAQUINARIA[registros.find(r => r.codigo_maquina === codigo)?.tipo_maquina as TipoMaquinaria] || '🚜'}</span>
-                                    {codigo}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* Filtros adicionales */}
+            {/* Filtros */}
             <div className="card p-4">
-                <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <div className="flex flex-col sm:flex-row gap-4">
+                    {/* Filtro desplegable estilo Excel */}
+                    <div className="relative sm:w-64">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Filtrar por Código</label>
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowCodigoFilter(!showCodigoFilter)}
+                                className="w-full input flex items-center justify-between text-left"
+                            >
+                                <span className={filterCodigo ? 'text-gray-800' : 'text-gray-400'}>
+                                    {filterCodigo || 'Seleccionar código...'}
+                                </span>
+                                <ChevronDown
+                                    size={18}
+                                    className={`text-gray-400 transition-transform ${showCodigoFilter ? 'rotate-180' : ''}`}
+                                />
+                            </button>
+
+                            {showCodigoFilter && (
+                                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-72 overflow-hidden">
+                                    <div className="p-2 border-b sticky top-0 bg-white">
+                                        <div className="relative">
+                                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                placeholder="Buscar código..."
+                                                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                                value={searchCodigo}
+                                                onChange={(e) => setSearchCodigo(e.target.value)}
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="overflow-y-auto max-h-52">
+                                        <button
+                                            onClick={() => { setFilterCodigo(''); setShowCodigoFilter(false); setSearchCodigo(''); }}
+                                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                                                !filterCodigo ? 'bg-amber-50 text-amber-700 font-medium' : 'text-gray-700'
+                                            }`}
+                                        >
+                                            Todos
+                                        </button>
+                                        {codigosUnicos
+                                            .filter(c => c.toLowerCase().includes(searchCodigo.toLowerCase()))
+                                            .map(codigo => (
+                                                <button
+                                                    key={codigo}
+                                                    onClick={() => { setFilterCodigo(codigo); setShowCodigoFilter(false); setSearchCodigo(''); }}
+                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${
+                                                        filterCodigo === codigo ? 'bg-amber-50 text-amber-700 font-medium' : 'text-gray-700'
+                                                    }`}
+                                                >
+                                                    <span>{ICONOS_MAQUINARIA[registros.find(r => r.codigo_maquina === codigo)?.tipo_maquina as TipoMaquinaria] || '🚜'}</span>
+                                                    {codigo}
+                                                </button>
+                                            ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Búsqueda general */}
+                    <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                            <input
+                                type="text"
+                                placeholder="Buscar por operador..."
+                                className="input pl-10 w-full"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Filtro por mes */}
+                    <div className="sm:w-48">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Mes</label>
                         <input
-                            type="text"
-                            placeholder="Buscar por código u operador..."
-                            className="input pl-10 w-full"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            type="month"
+                            className="input w-full"
+                            value={filterMes}
+                            onChange={(e) => setFilterMes(e.target.value)}
                         />
                     </div>
-                    <input
-                        type="month"
-                        className="input sm:w-48"
-                        value={filterMes}
-                        onChange={(e) => setFilterMes(e.target.value)}
-                    />
+
+                    {/* Limpiar filtros */}
+                    {(filterCodigo || searchTerm || filterMes) && (
+                        <button
+                            onClick={() => { setFilterCodigo(''); setSearchTerm(''); setFilterMes(''); }}
+                            className="self-end px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-1"
+                        >
+                            <X size={16} /> Limpiar
+                        </button>
+                    )}
                 </div>
             </div>
 

@@ -39,6 +39,7 @@ export default function CITVPage() {
     const [usingDemo, setUsingDemo] = useState(true);
     const [filterCodigo, setFilterCodigo] = useState<string>('');
     const [showCodigoFilter, setShowCodigoFilter] = useState(false);
+    const [searchCodigo, setSearchCodigo] = useState('');
     const { profile } = useAuth();
     const router = useRouter();
     const userRole = profile?.rol as Role;
@@ -204,63 +205,76 @@ export default function CITVPage() {
                 </div>
             </div>
 
-            {/* Menú desplegable de filtro por código */}
-            <div className="card overflow-hidden">
-                <button
-                    onClick={() => setShowCodigoFilter(!showCodigoFilter)}
-                    className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-                >
-                    <div className="flex items-center gap-3">
-                        <Search size={20} className="text-blue-600" />
-                        <div className="text-left">
-                            <p className="font-medium text-gray-800">Filtrar por Código</p>
-                            <p className="text-sm text-gray-500">
-                                {filterCodigo ? `Seleccionado: ${filterCodigo}` : 'Todos los registros'}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {filterCodigo && (
-                            <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
-                                1 filtro
-                            </span>
-                        )}
-                        <ChevronDown
-                            size={20}
-                            className={`text-gray-400 transition-transform duration-200 ${showCodigoFilter ? 'rotate-180' : ''}`}
-                        />
-                    </div>
-                </button>
-
-                {showCodigoFilter && (
-                    <div className="border-t bg-gray-50 p-4">
-                        <div className="flex flex-wrap gap-2">
+            {/* Filtro desplegable estilo Excel */}
+            <div className="card p-4">
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1 sm:max-w-xs">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Filtrar por Código</label>
+                        <div className="relative">
                             <button
-                                onClick={() => { setFilterCodigo(''); setShowCodigoFilter(false); }}
-                                className={`px-4 py-2 rounded-lg transition-all ${
-                                    !filterCodigo
-                                        ? 'bg-blue-600 text-white shadow-lg'
-                                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-                                }`}
+                                onClick={() => setShowCodigoFilter(!showCodigoFilter)}
+                                className="w-full input flex items-center justify-between text-left"
                             >
-                                Todos
+                                <span className={filterCodigo ? 'text-gray-800' : 'text-gray-400'}>
+                                    {filterCodigo || 'Seleccionar código...'}
+                                </span>
+                                <ChevronDown
+                                    size={18}
+                                    className={`text-gray-400 transition-transform ${showCodigoFilter ? 'rotate-180' : ''}`}
+                                />
                             </button>
-                            {codigosUnicos.map(codigo => (
-                                <button
-                                    key={codigo}
-                                    onClick={() => { setFilterCodigo(codigo); setShowCodigoFilter(false); }}
-                                    className={`px-4 py-2 rounded-lg transition-all ${
-                                        filterCodigo === codigo
-                                            ? 'bg-blue-600 text-white shadow-lg'
-                                            : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-                                    }`}
-                                >
-                                    {codigo}
-                                </button>
-                            ))}
+
+                            {showCodigoFilter && (
+                                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-72 overflow-hidden">
+                                    <div className="p-2 border-b sticky top-0 bg-white">
+                                        <div className="relative">
+                                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                placeholder="Buscar código..."
+                                                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                value={searchCodigo}
+                                                onChange={(e) => setSearchCodigo(e.target.value)}
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="overflow-y-auto max-h-52">
+                                        <button
+                                            onClick={() => { setFilterCodigo(''); setShowCodigoFilter(false); setSearchCodigo(''); }}
+                                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                                                !filterCodigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                                            }`}
+                                        >
+                                            Todos
+                                        </button>
+                                        {codigosUnicos
+                                            .filter(c => c.toLowerCase().includes(searchCodigo.toLowerCase()))
+                                            .map(codigo => (
+                                                <button
+                                                    key={codigo}
+                                                    onClick={() => { setFilterCodigo(codigo); setShowCodigoFilter(false); setSearchCodigo(''); }}
+                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                                                        filterCodigo === codigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                                                    }`}
+                                                >
+                                                    {codigo}
+                                                </button>
+                                            ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
-                )}
+                    {filterCodigo && (
+                        <button
+                            onClick={() => setFilterCodigo('')}
+                            className="self-end px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-1"
+                        >
+                            <X size={16} /> Limpiar
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Table */}
