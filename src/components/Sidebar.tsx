@@ -20,16 +20,22 @@ import {
     Shield,
     X,
     History,
-    Bell
+    Bell,
+    Fuel,
+    FileSpreadsheet,
+    FileText
 } from 'lucide-react';
 
 const menuItems = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/maquinaria', label: 'Maquinaria', icon: Truck },
     { href: '/mantenimientos', label: 'Mantenimientos', icon: Wrench },
+    { href: '/combustible', label: 'Combustible', icon: Fuel },
     { href: '/soat', label: 'Control SOAT', icon: FileCheck },
     { href: '/citv', label: 'Revisiones CITV', icon: ClipboardCheck },
     { href: '/filtros', label: 'Filtros', icon: Filter },
+    { href: '/valorizaciones', label: 'Valorizaciones', icon: FileSpreadsheet },
+    { href: '/reportes', label: 'Reportes PDF', icon: FileText },
     { href: '/alertas', label: 'Alertas Email', icon: Bell },
     { href: '/importar', label: 'Importar Datos', icon: Upload },
 ];
