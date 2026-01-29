@@ -102,6 +102,7 @@ export default function HistorialPage() {
         try {
             const supabase = createClient();
             if (!supabase) {
+                console.log('Supabase no configurado');
                 setLoading(false);
                 return;
             }
@@ -112,10 +113,21 @@ export default function HistorialPage() {
                 .order('created_at', { ascending: false })
                 .limit(100);
 
-            if (error) throw error;
+            console.log('Historial data:', data);
+            console.log('Historial error:', error);
+
+            if (error) {
+                console.error('Error RLS o tabla:', error.message);
+                // Si hay error de permisos, seguir en modo demo
+                return;
+            }
+
+            // Conexión exitosa - quitar modo demo aunque no haya datos
+            setUsingDemo(false);
             if (data && data.length > 0) {
                 setHistorial(data);
-                setUsingDemo(false);
+            } else {
+                setHistorial([]); // Tabla vacía pero conectada
             }
         } catch (error) {
             console.error('Error fetching historial:', error);

@@ -114,8 +114,14 @@ export default function CombustiblePage() {
                 fetchTable<any>('maquinaria', '&order=codigo')
             ]);
 
-            if (combustibleData?.length > 0) {
-                setRegistros(combustibleData);
+            console.log('Combustible data:', combustibleData);
+            console.log('Maquinaria data:', maquinariaData);
+
+            // Si hay datos de Supabase (aunque sea array vacío pero la conexión funciona)
+            if (combustibleData !== null) {
+                if (combustibleData.length > 0) {
+                    setRegistros(combustibleData);
+                }
                 setUsingDemo(false);
             }
 
