@@ -21,7 +21,7 @@ import { Maquinaria, TipoMaquinaria, EstadoMaquinaria, ICONOS_MAQUINARIA, EMPRES
 import { formatNumber } from '@/lib/utils';
 import { exportToExcel, formatMaquinariaForExport } from '@/lib/export';
 import { useAuth } from '@/components/auth-provider';
-import { getSeriePorCodigo, getCodigoConSerie } from '@/lib/equipos-data';
+import { getSeriePorCodigo, getCodigoConSerie, getCodigoPorSerie, getEquipoPorSerie, EQUIPOS_MAESTRO } from '@/lib/equipos-data';
 
 const TIPOS: TipoMaquinaria[] = [
     'EXCAVADORA', 'MOTONIVELADORA', 'CARGADOR FRONTAL', 'RETROEXCAVADORA',
@@ -376,7 +376,7 @@ export default function MaquinariaPage() {
                                 className="w-full input flex items-center justify-between text-left"
                             >
                                 <span className={filterCodigo ? 'text-gray-800' : 'text-gray-400'}>
-                                    {filterCodigo ? getCodigoConSerie(filterCodigo) : 'Todos los equipos...'}
+                                    {filterCodigo ? `${getCodigoPorSerie(filterCodigo) || filterCodigo} (${filterCodigo})` : 'Todos los equipos...'}
                                 </span>
                                 <ChevronDown size={18} className={`text-gray-400 transition-transform ${showCodigoFilter ? 'rotate-180' : ''}`} />
                             </button>
@@ -405,19 +405,19 @@ export default function MaquinariaPage() {
                                         </button>
                                         {codigosUnicos
                                             .filter(c => {
-                                                const serie = getSeriePorCodigo(c).toLowerCase();
+                                                const codigoReal = getCodigoPorSerie(c).toLowerCase();
                                                 const term = searchCodigo.toLowerCase();
-                                                return c.toLowerCase().includes(term) || serie.includes(term);
+                                                return c.toLowerCase().includes(term) || codigoReal.includes(term);
                                             })
-                                            .map(codigo => (
+                                            .map(serie => (
                                                 <button
-                                                    key={codigo}
-                                                    onClick={() => { setFilterCodigo(codigo); setShowCodigoFilter(false); setSearchCodigo(''); }}
-                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${filterCodigo === codigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                                    key={serie}
+                                                    onClick={() => { setFilterCodigo(serie); setShowCodigoFilter(false); setSearchCodigo(''); }}
+                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${filterCodigo === serie ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
                                                 >
-                                                    <span>{ICONOS_MAQUINARIA[maquinaria.find(m => m.codigo === codigo)?.tipo as TipoMaquinaria] || '🔧'}</span>
-                                                    <span className="font-medium">{codigo}</span>
-                                                    <span className="text-gray-400">({getSeriePorCodigo(codigo) || maquinaria.find(m => m.codigo === codigo)?.serie || '-'})</span>
+                                                    <span>{ICONOS_MAQUINARIA[maquinaria.find(m => m.codigo === serie)?.tipo as TipoMaquinaria] || '🔧'}</span>
+                                                    <span className="font-medium">{getCodigoPorSerie(serie) || serie}</span>
+                                                    <span className="text-gray-400">({serie})</span>
                                                 </button>
                                             ))}
                                     </div>
@@ -505,7 +505,7 @@ export default function MaquinariaPage() {
                                     </button>
                                 </th>
                                 <th>Item</th>
-                                <th>Código</th>
+                                <th>Código / Serie</th>
                                 <th>Tipo</th>
                                 <th>Modelo</th>
                                 <th>Marca</th>
@@ -535,10 +535,10 @@ export default function MaquinariaPage() {
                                     <td>
                                         <div className="flex flex-col">
                                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800 text-white font-bold text-sm w-fit">
-                                                {m.codigo}
+                                                {getCodigoPorSerie(m.codigo) || m.codigo}
                                             </span>
                                             <span className="text-xs text-gray-400 mt-0.5 pl-1">
-                                                {getSeriePorCodigo(m.codigo) || m.serie || '-'}
+                                                {m.codigo}
                                             </span>
                                         </div>
                                     </td>

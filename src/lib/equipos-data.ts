@@ -93,3 +93,23 @@ export function buscarEquipos(termino: string): Equipo[] {
 export function getCodigosOrdenados(): string[] {
     return EQUIPOS_MAESTRO.map(e => e.codigo).sort();
 }
+
+// Función para obtener código a partir de la serie
+export function getCodigoPorSerie(serie: string): string {
+    const equipo = EQUIPOS_MAESTRO.find(e => e.serie.toLowerCase() === serie.toLowerCase());
+    return equipo?.codigo || '';
+}
+
+// Función para obtener equipo completo por serie
+export function getEquipoPorSerie(serie: string): Equipo | undefined {
+    return EQUIPOS_MAESTRO.find(e => e.serie.toLowerCase() === serie.toLowerCase());
+}
+
+// Función para mostrar formato CODIGO (SERIE)
+export function formatearEquipo(serie: string): string {
+    const equipo = EQUIPOS_MAESTRO.find(e => e.serie.toLowerCase() === serie.toLowerCase());
+    if (equipo) {
+        return `${equipo.codigo} (${equipo.serie})`;
+    }
+    return serie;
+}
