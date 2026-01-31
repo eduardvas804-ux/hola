@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { fetchTable, deleteRow, registrarCambio } from '@/lib/api';
 import { Search, Download, ShoppingCart, Check, Printer, ChevronDown, X, Trash2, Plus } from 'lucide-react';
 import { exportToExcel, formatFiltrosForExport } from '@/lib/export';
-import { EQUIPOS_MAESTRO, getCodigoConSerie, getSeriePorCodigo } from '@/lib/equipos-data';
+import { EQUIPOS_MAESTRO, getCodigoConSerie, getSeriePorCodigo, getEquipoPorSerie, getTipoPorCodigo, getModeloPorCodigo } from '@/lib/equipos-data';
 import { useAuth } from '@/components/auth-provider';
 import { puedeEliminar } from '@/lib/permisos';
 import { Role } from '@/lib/types';
@@ -274,7 +274,7 @@ export default function FiltrosPage() {
                                 className="w-full input flex items-center justify-between text-left"
                             >
                                 <span className={filterCodigo ? 'text-gray-800' : 'text-gray-400'}>
-                                    {filterCodigo ? getCodigoConSerie(filterCodigo) : 'Todos los equipos...'}
+                                    {filterCodigo ? `${filterCodigo} - ${getTipoPorCodigo(filterCodigo)} ${getModeloPorCodigo(filterCodigo)} (${getSeriePorCodigo(filterCodigo)})` : 'Todos los equipos...'}
                                 </span>
                                 <ChevronDown size={18} className={`text-gray-400 transition-transform ${showCodigoFilter ? 'rotate-180' : ''}`} />
                             </button>
@@ -301,20 +301,23 @@ export default function FiltrosPage() {
                                         >
                                             Todos
                                         </button>
-                                        {codigosUnicos
-                                            .filter(c => {
-                                                const serie = getSeriePorCodigo(c).toLowerCase();
+                                        {EQUIPOS_MAESTRO
+                                            .filter(eq => {
                                                 const term = searchCodigo.toLowerCase();
-                                                return c.toLowerCase().includes(term) || serie.includes(term);
+                                                return eq.codigo.toLowerCase().includes(term) ||
+                                                       eq.serie.toLowerCase().includes(term) ||
+                                                       eq.tipo.toLowerCase().includes(term) ||
+                                                       eq.modelo.toLowerCase().includes(term);
                                             })
-                                            .map(codigo => (
+                                            .map(eq => (
                                                 <button
-                                                    key={codigo}
-                                                    onClick={() => { setFilterCodigo(codigo); setShowCodigoFilter(false); setSearchCodigo(''); }}
-                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${filterCodigo === codigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                                    key={eq.codigo}
+                                                    onClick={() => { setFilterCodigo(eq.codigo); setShowCodigoFilter(false); setSearchCodigo(''); }}
+                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${filterCodigo === eq.codigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
                                                 >
-                                                    <span className="font-medium">{codigo}</span>
-                                                    <span className="text-gray-400 ml-1">({getSeriePorCodigo(codigo)})</span>
+                                                    <span className="font-medium">{eq.codigo}</span>
+                                                    <span className="text-gray-500 ml-2">{eq.tipo} {eq.modelo}</span>
+                                                    <span className="text-gray-400 ml-1">({eq.serie})</span>
                                                 </button>
                                             ))}
                                     </div>
@@ -363,7 +366,7 @@ export default function FiltrosPage() {
                             : 'hover:shadow-lg'
                         }`}
                     >
-                        {/* Header del card - Código y Serie */}
+                        {/* Header del card - Código, Tipo y Serie */}
                         <div
                             className={`p-4 cursor-pointer ${selectedItems.includes(f.id) ? 'bg-blue-500 text-white' : 'bg-slate-800 text-white'}`}
                             onClick={() => toggleSelect(f.id)}
@@ -372,7 +375,10 @@ export default function FiltrosPage() {
                                 <div>
                                     <h3 className="text-xl font-bold">{f.maquinaria_codigo}</h3>
                                     <p className={`text-sm ${selectedItems.includes(f.id) ? 'text-blue-100' : 'text-slate-300'}`}>
-                                        {getSeriePorCodigo(f.maquinaria_codigo) || 'Sin serie'}
+                                        {getTipoPorCodigo(f.maquinaria_codigo)} {getModeloPorCodigo(f.maquinaria_codigo)}
+                                    </p>
+                                    <p className={`text-xs ${selectedItems.includes(f.id) ? 'text-blue-200' : 'text-slate-400'}`}>
+                                        Serie: {getSeriePorCodigo(f.maquinaria_codigo) || 'N/A'}
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-2">
