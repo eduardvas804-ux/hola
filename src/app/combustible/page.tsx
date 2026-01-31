@@ -27,7 +27,7 @@ import { exportToExcel } from '@/lib/export';
 import { useAuth } from '@/components/auth-provider';
 import { puedeVer, puedeCrear, puedeEditar, puedeEliminar, puedeExportar } from '@/lib/permisos';
 import { useRouter } from 'next/navigation';
-import { getSeriePorCodigo, getCodigoConSerie } from '@/lib/equipos-data';
+import { getSeriePorCodigo, getCodigoConSerie, getCodigoPorSerie, EQUIPOS_MAESTRO, formatearEquipo } from '@/lib/equipos-data';
 
 type TipoMovimiento = 'ENTRADA' | 'SALIDA';
 
@@ -392,21 +392,23 @@ export default function CombustiblePage() {
                                         >
                                             <Fuel size={16} /> CISTERNA (Abastecimientos)
                                         </button>
-                                        {codigosUnicos
-                                            .filter(c => {
-                                                const serie = getSeriePorCodigo(c).toLowerCase();
+                                        {EQUIPOS_MAESTRO
+                                            .filter(eq => {
                                                 const term = searchCodigo.toLowerCase();
-                                                return c.toLowerCase().includes(term) || serie.includes(term);
+                                                return eq.codigo.toLowerCase().includes(term) ||
+                                                       eq.serie.toLowerCase().includes(term) ||
+                                                       eq.modelo.toLowerCase().includes(term);
                                             })
-                                            .map(codigo => (
+                                            .map(eq => (
                                                 <button
-                                                    key={codigo}
-                                                    onClick={() => { setFilterCodigo(codigo); setShowCodigoFilter(false); setSearchCodigo(''); }}
-                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${filterCodigo === codigo ? 'bg-amber-50 text-amber-700 font-medium' : 'text-gray-700'}`}
+                                                    key={eq.codigo}
+                                                    onClick={() => { setFilterCodigo(eq.codigo); setShowCodigoFilter(false); setSearchCodigo(''); }}
+                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${filterCodigo === eq.codigo ? 'bg-amber-50 text-amber-700 font-medium' : 'text-gray-700'}`}
                                                 >
-                                                    <span>{ICONOS_MAQUINARIA[registros.find(r => r.codigo_maquina === codigo)?.tipo_maquina as TipoMaquinaria] || '🚜'}</span>
-                                                    <span className="font-medium">{codigo}</span>
-                                                    <span className="text-gray-400">({getSeriePorCodigo(codigo)})</span>
+                                                    <span>{ICONOS_MAQUINARIA[eq.tipo as TipoMaquinaria] || '🚜'}</span>
+                                                    <span className="font-medium">{eq.codigo}</span>
+                                                    <span className="text-gray-500">{eq.modelo}</span>
+                                                    <span className="text-gray-400">({eq.serie})</span>
                                                 </button>
                                             ))}
                                     </div>
@@ -619,11 +621,10 @@ export default function CombustiblePage() {
                                             onChange={(e) => setFormData({ ...formData, codigo_maquina: e.target.value })}
                                         >
                                             <option value="">Seleccionar...</option>
-                                            {maquinaria.map(m => (
-                                                <option key={m.id} value={m.codigo}>{m.codigo} - {m.tipo}</option>
-                                            ))}
-                                            {maquinaria.length === 0 && codigosUnicos.map(c => (
-                                                <option key={c} value={c}>{c}</option>
+                                            {EQUIPOS_MAESTRO.map(eq => (
+                                                <option key={eq.codigo} value={eq.codigo}>
+                                                    {eq.codigo} - {eq.tipo} {eq.modelo} ({eq.serie})
+                                                </option>
                                             ))}
                                         </select>
                                     </div>

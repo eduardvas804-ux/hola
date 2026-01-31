@@ -12,38 +12,44 @@ import {
     Save,
     Download,
     ChevronDown,
-    Search
+    Search,
+    Plus,
+    Trash2,
+    RefreshCw
 } from 'lucide-react';
-import { fetchTable, updateRow, registrarCambio } from '@/lib/api';
+import { createClient } from '@/lib/supabase';
 import { formatDate, calcularAlertaDocumento } from '@/lib/utils';
 import { exportToExcel, formatSoatForExport } from '@/lib/export';
 import { useAuth } from '@/components/auth-provider';
-import { puedeVer, puedeEditar, puedeExportar } from '@/lib/permisos';
+import { puedeVer, puedeEditar, puedeExportar, puedeCrear, puedeEliminar } from '@/lib/permisos';
 import { Role } from '@/lib/types';
 import { useRouter } from 'next/navigation';
-import { getSeriePorCodigo, getCodigoConSerie } from '@/lib/equipos-data';
-
-const DEMO_SOAT = [
-    { id: '1', codigo: 'VOL-01', tipo: 'VOLQUETE', modelo: 'ACTROS 3336K', placa_serie: 'WDB9302', empresa: 'JLMX VASQUEZ EJECUTORES E.I.R.L', fecha_vencimiento: '2026-02-10' },
-    { id: '2', codigo: 'CAM-01', tipo: 'CAMIONETA', modelo: 'RANGER XLT', placa_serie: 'AYZ-861', empresa: 'JORGE LUIS VASQUEZ CUSMA', fecha_vencimiento: '2026-02-05' },
-    { id: '3', codigo: 'CIST-01', tipo: 'CISTERNA DE AGUA', modelo: 'FM', placa_serie: 'ADI-737', empresa: 'JORGE LUIS VASQUEZ CUSMA', fecha_vencimiento: '2026-04-15' },
-    { id: '4', codigo: 'CIST-02', tipo: 'CISTERNA DE COMBUSTIBLE', modelo: 'FL', placa_serie: 'AED-892', empresa: 'JOMEX CONSTRUCTORA S.A.C', fecha_vencimiento: '2026-05-20' },
-    { id: '5', codigo: 'VOL-02', tipo: 'VOLQUETE', modelo: 'FMX 440', placa_serie: 'ARE-156', empresa: 'JORGE LUIS VASQUEZ CUSMA', fecha_vencimiento: '2026-06-18' },
-];
+import { EQUIPOS_MAESTRO, getCodigoPorSerie } from '@/lib/equipos-data';
 
 export default function SOATPage() {
     const [soat, setSoat] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
-    const [selectedItem, setSelectedItem] = useState<any>(null);
-    const [newFecha, setNewFecha] = useState('');
-    const [usingDemo, setUsingDemo] = useState(true);
+    const [editingItem, setEditingItem] = useState<any>(null);
+    const [usingDemo, setUsingDemo] = useState(false);
     const [filterCodigo, setFilterCodigo] = useState<string>('');
     const [showCodigoFilter, setShowCodigoFilter] = useState(false);
     const [searchCodigo, setSearchCodigo] = useState('');
+    const [mensaje, setMensaje] = useState<{ tipo: 'success' | 'error'; texto: string } | null>(null);
     const { profile, user } = useAuth();
     const router = useRouter();
     const userRole = profile?.rol as Role;
+
+    const emptyForm = {
+        codigo: '',
+        tipo: '',
+        modelo: '',
+        placa_serie: '',
+        empresa: 'JORGE LUIS VASQUEZ CUSMA',
+        fecha_vencimiento: ''
+    };
+
+    const [formData, setFormData] = useState(emptyForm);
 
     useEffect(() => {
         if (profile && !puedeVer(userRole, 'soat')) {
@@ -54,21 +60,123 @@ export default function SOATPage() {
     }, [profile, userRole, router]);
 
     async function fetchData() {
+        setLoading(true);
         try {
-            const data = await fetchTable<any>('soat', '&order=fecha_vencimiento');
-            if (data?.length > 0) {
-                setUsingDemo(false);
-                setSoat(data);
-            } else {
-                setUsingDemo(true);
-                setSoat(DEMO_SOAT);
+            const supabase = createClient();
+            if (!supabase) {
+                setLoading(false);
+                return;
             }
-        } catch {
-            setUsingDemo(true);
-            setSoat(DEMO_SOAT);
+
+            const { data, error } = await supabase
+                .from('soat')
+                .select('*')
+                .order('fecha_vencimiento');
+
+            if (error) {
+                console.error('Error:', error);
+            } else {
+                setSoat(data || []);
+            }
+        } catch (error) {
+            console.error('Error:', error);
         } finally {
             setLoading(false);
         }
+    }
+
+    function openCreateModal() {
+        setEditingItem(null);
+        setFormData(emptyForm);
+        setShowModal(true);
+    }
+
+    function openEditModal(item: any) {
+        setEditingItem(item);
+        setFormData({
+            codigo: item.codigo || '',
+            tipo: item.tipo || '',
+            modelo: item.modelo || '',
+            placa_serie: item.placa_serie || '',
+            empresa: item.empresa || 'JORGE LUIS VASQUEZ CUSMA',
+            fecha_vencimiento: item.fecha_vencimiento || ''
+        });
+        setShowModal(true);
+    }
+
+    function handleEquipoChange(codigo: string) {
+        const equipo = EQUIPOS_MAESTRO.find(e => e.codigo === codigo);
+        if (equipo) {
+            setFormData({
+                ...formData,
+                codigo: equipo.codigo,
+                tipo: equipo.tipo,
+                modelo: equipo.modelo,
+                placa_serie: equipo.serie
+            });
+        }
+    }
+
+    async function handleSave() {
+        if (!formData.codigo || !formData.fecha_vencimiento) {
+            setMensaje({ tipo: 'error', texto: 'Complete código y fecha de vencimiento' });
+            return;
+        }
+
+        try {
+            const supabase = createClient();
+            if (!supabase) return;
+
+            if (editingItem) {
+                const { error } = await supabase
+                    .from('soat')
+                    .update(formData)
+                    .eq('id', editingItem.id);
+
+                if (error) throw error;
+                setMensaje({ tipo: 'success', texto: 'SOAT actualizado correctamente' });
+            } else {
+                const { error } = await supabase
+                    .from('soat')
+                    .insert([formData]);
+
+                if (error) throw error;
+                setMensaje({ tipo: 'success', texto: 'SOAT agregado correctamente' });
+            }
+
+            setShowModal(false);
+            fetchData();
+        } catch (error: any) {
+            console.error('Error:', error);
+            setMensaje({ tipo: 'error', texto: error.message || 'Error al guardar' });
+        }
+    }
+
+    async function handleDelete(id: string, codigo: string) {
+        if (!confirm(`¿Eliminar SOAT de ${codigo}?`)) return;
+
+        try {
+            const supabase = createClient();
+            if (!supabase) return;
+
+            const { error } = await supabase
+                .from('soat')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            setSoat(prev => prev.filter(s => s.id !== id));
+            setMensaje({ tipo: 'success', texto: `SOAT de ${codigo} eliminado` });
+        } catch (error: any) {
+            console.error('Error:', error);
+            setMensaje({ tipo: 'error', texto: 'Error al eliminar' });
+        }
+    }
+
+    function handleExport() {
+        const dataToExport = formatSoatForExport(soatConEstado);
+        exportToExcel(dataToExport, 'SOAT_' + new Date().toISOString().split('T')[0], 'SOAT');
     }
 
     // Calcular días y estado para cada registro
@@ -76,9 +184,6 @@ export default function SOATPage() {
         const { accion, diasRestantes, color } = calcularAlertaDocumento(s.fecha_vencimiento);
         return { ...s, dias_restantes: diasRestantes, accion_requerida: accion, color };
     }).sort((a, b) => a.dias_restantes - b.dias_restantes);
-
-    // Obtener códigos únicos para el filtro deslizable
-    const codigosUnicos = [...new Set(soat.map(s => s.codigo))].sort();
 
     // Filtrar por código
     const soatFiltrado = filterCodigo
@@ -92,51 +197,6 @@ export default function SOATPage() {
         vigente: soatConEstado.filter(s => s.dias_restantes > 30).length,
     };
 
-    function handleExport() {
-        const dataToExport = formatSoatForExport(soatConEstado);
-        exportToExcel(dataToExport, 'SOAT_' + new Date().toISOString().split('T')[0], 'SOAT');
-    }
-
-    function openRenovarModal(item: any) {
-        setSelectedItem(item);
-        // Calcular nueva fecha + 1 año
-        const fechaActual = new Date(item.fecha_vencimiento);
-        fechaActual.setFullYear(fechaActual.getFullYear() + 1);
-        setNewFecha(fechaActual.toISOString().split('T')[0]);
-        setShowModal(true);
-    }
-
-    async function renovarSoat() {
-        const usuarioInfo = {
-            id: user?.id || 'demo',
-            email: user?.email || 'demo@demo.com',
-            nombre: profile?.nombre_completo || 'Usuario Demo'
-        };
-
-        if (usingDemo) {
-            setSoat(prev => prev.map(s =>
-                s.id === selectedItem.id
-                    ? { ...s, fecha_vencimiento: newFecha }
-                    : s
-            ));
-            setShowModal(false);
-            return;
-        }
-
-        try {
-            const datosAnteriores = { fecha_vencimiento: selectedItem.fecha_vencimiento };
-            const datosNuevos = { fecha_vencimiento: newFecha };
-
-            await updateRow('soat', selectedItem.id, { fecha_vencimiento: newFecha });
-            // Registrar renovación en historial
-            await registrarCambio('soat', 'UPDATE', selectedItem.codigo, datosAnteriores, datosNuevos, usuarioInfo);
-            fetchData();
-            setShowModal(false);
-        } catch (error) {
-            console.error('Error:', error);
-        }
-    }
-
     if (loading) {
         return (
             <div className="flex items-center justify-center h-96">
@@ -148,94 +208,106 @@ export default function SOATPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-800">Control de SOAT</h1>
-                    <p className="text-gray-500 mt-1">Seguimiento de Seguros Obligatorios de Accidentes de Tránsito</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center gap-3">
+                        <FileCheck className="text-blue-500" />
+                        Control de SOAT
+                    </h1>
+                    <p className="text-gray-500 mt-1">Seguimiento de Seguros Obligatorios</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                    <button onClick={fetchData} className="btn btn-outline" title="Recargar">
+                        <RefreshCw size={18} />
+                    </button>
                     {puedeExportar(userRole, 'soat') && (
                         <button onClick={handleExport} className="btn btn-outline">
                             <Download size={18} />
-                            Exportar Excel
+                            Exportar
                         </button>
                     )}
-                    {usingDemo && (
-                        <span className="bg-amber-100 text-amber-800 px-3 py-2 rounded-lg text-sm font-medium">
-                            ⚠️ Modo Demo
-                        </span>
+                    {puedeCrear(userRole, 'soat') && (
+                        <button onClick={openCreateModal} className="btn btn-primary">
+                            <Plus size={18} />
+                            Agregar SOAT
+                        </button>
                     )}
                 </div>
             </div>
 
+            {/* Mensaje */}
+            {mensaje && (
+                <div className={`p-4 rounded-lg flex items-center gap-2 ${
+                    mensaje.tipo === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
+                }`}>
+                    {mensaje.tipo === 'success' ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
+                    {mensaje.texto}
+                    <button onClick={() => setMensaje(null)} className="ml-auto"><X size={18} /></button>
+                </div>
+            )}
+
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="card p-5">
-                    <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center">
-                            <AlertTriangle className="text-white" size={28} />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="card p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
+                            <AlertTriangle className="text-red-600" size={24} />
                         </div>
                         <div>
+                            <p className="text-2xl font-bold text-red-600">{stats.vencido}</p>
                             <p className="text-sm text-gray-500">Vencido</p>
-                            <p className="text-3xl font-bold text-red-600">{stats.vencido}</p>
                         </div>
                     </div>
                 </div>
-
-                <div className="card p-5">
-                    <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-red-400 to-red-500 flex items-center justify-center">
-                            <Clock className="text-white" size={28} />
+                <div className="card p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
+                            <Clock className="text-orange-600" size={24} />
                         </div>
                         <div>
-                            <p className="text-sm text-gray-500">Urgente (≤7 días)</p>
-                            <p className="text-3xl font-bold text-red-500">{stats.urgente}</p>
+                            <p className="text-2xl font-bold text-orange-600">{stats.urgente}</p>
+                            <p className="text-sm text-gray-500">Urgente (≤7d)</p>
                         </div>
                     </div>
                 </div>
-
-                <div className="card p-5">
-                    <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center">
-                            <Calendar className="text-white" size={28} />
+                <div className="card p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+                            <Calendar className="text-amber-600" size={24} />
                         </div>
                         <div>
-                            <p className="text-sm text-gray-500">Próximo (≤30 días)</p>
-                            <p className="text-3xl font-bold text-amber-500">{stats.proximo}</p>
+                            <p className="text-2xl font-bold text-amber-600">{stats.proximo}</p>
+                            <p className="text-sm text-gray-500">Próximo (≤30d)</p>
                         </div>
                     </div>
                 </div>
-
-                <div className="card p-5">
-                    <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center">
-                            <CheckCircle className="text-white" size={28} />
+                <div className="card p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+                            <CheckCircle className="text-green-600" size={24} />
                         </div>
                         <div>
+                            <p className="text-2xl font-bold text-green-600">{stats.vigente}</p>
                             <p className="text-sm text-gray-500">Vigente</p>
-                            <p className="text-3xl font-bold text-green-500">{stats.vigente}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Filtro desplegable estilo Excel */}
+            {/* Filtro */}
             <div className="card p-4">
                 <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="relative sm:w-72">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Equipo</label>
+                    <div className="relative sm:w-80">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Filtrar por Equipo</label>
                         <div className="relative">
                             <button
                                 onClick={() => setShowCodigoFilter(!showCodigoFilter)}
                                 className="w-full input flex items-center justify-between text-left"
                             >
                                 <span className={filterCodigo ? 'text-gray-800' : 'text-gray-400'}>
-                                    {filterCodigo ? getCodigoConSerie(filterCodigo) : 'Todos los equipos...'}
+                                    {filterCodigo ? `${filterCodigo} - ${EQUIPOS_MAESTRO.find(e => e.codigo === filterCodigo)?.modelo || ''} (${EQUIPOS_MAESTRO.find(e => e.codigo === filterCodigo)?.serie || ''})` : 'Todos los equipos...'}
                                 </span>
-                                <ChevronDown
-                                    size={18}
-                                    className={`text-gray-400 transition-transform ${showCodigoFilter ? 'rotate-180' : ''}`}
-                                />
+                                <ChevronDown size={18} className={`text-gray-400 transition-transform ${showCodigoFilter ? 'rotate-180' : ''}`} />
                             </button>
 
                             {showCodigoFilter && (
@@ -245,8 +317,8 @@ export default function SOATPage() {
                                             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                             <input
                                                 type="text"
-                                                placeholder="Buscar código o serie..."
-                                                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                placeholder="Buscar..."
+                                                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg"
                                                 value={searchCodigo}
                                                 onChange={(e) => setSearchCodigo(e.target.value)}
                                                 onClick={(e) => e.stopPropagation()}
@@ -255,29 +327,27 @@ export default function SOATPage() {
                                     </div>
                                     <div className="overflow-y-auto max-h-60">
                                         <button
-                                            onClick={() => { setFilterCodigo(''); setShowCodigoFilter(false); setSearchCodigo(''); }}
-                                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                                                !filterCodigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                                            }`}
+                                            onClick={() => { setFilterCodigo(''); setShowCodigoFilter(false); }}
+                                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${!filterCodigo ? 'bg-blue-50 text-blue-700 font-medium' : ''}`}
                                         >
                                             Todos
                                         </button>
-                                        {codigosUnicos
-                                            .filter(c => {
-                                                const serie = getSeriePorCodigo(c).toLowerCase();
+                                        {EQUIPOS_MAESTRO
+                                            .filter(eq => {
                                                 const term = searchCodigo.toLowerCase();
-                                                return c.toLowerCase().includes(term) || serie.includes(term);
+                                                return eq.codigo.toLowerCase().includes(term) ||
+                                                       eq.serie.toLowerCase().includes(term) ||
+                                                       eq.modelo.toLowerCase().includes(term);
                                             })
-                                            .map(codigo => (
+                                            .map(eq => (
                                                 <button
-                                                    key={codigo}
-                                                    onClick={() => { setFilterCodigo(codigo); setShowCodigoFilter(false); setSearchCodigo(''); }}
-                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                                                        filterCodigo === codigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                                                    }`}
+                                                    key={eq.codigo}
+                                                    onClick={() => { setFilterCodigo(eq.codigo); setShowCodigoFilter(false); setSearchCodigo(''); }}
+                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${filterCodigo === eq.codigo ? 'bg-blue-50 text-blue-700 font-medium' : ''}`}
                                                 >
-                                                    <span className="font-medium">{codigo}</span>
-                                                    <span className="text-gray-400 ml-1">({getSeriePorCodigo(codigo)})</span>
+                                                    <span className="font-medium">{eq.codigo}</span>
+                                                    <span className="text-gray-500 ml-2">{eq.tipo} {eq.modelo}</span>
+                                                    <span className="text-gray-400 ml-1">({eq.serie})</span>
                                                 </button>
                                             ))}
                                     </div>
@@ -296,13 +366,8 @@ export default function SOATPage() {
                 </div>
             </div>
 
-            {/* Table */}
+            {/* Tabla */}
             <div className="card overflow-hidden">
-                <div className="p-5 border-b border-gray-100">
-                    <h2 className="text-lg font-bold text-gray-800">
-                        {filterCodigo ? `SOAT - ${filterCodigo}` : 'Listado de SOAT'}
-                    </h2>
-                </div>
                 <div className="overflow-x-auto">
                     <table className="data-table">
                         <thead>
@@ -311,97 +376,154 @@ export default function SOATPage() {
                                 <th>Tipo</th>
                                 <th>Modelo</th>
                                 <th>Placa/Serie</th>
-                                <th>Empresa</th>
                                 <th>Vencimiento</th>
-                                <th>Días</th>
                                 <th>Estado</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {soatFiltrado.map((s) => (
-                                <tr key={s.id}>
-                                    <td className="font-semibold">{s.codigo}</td>
-                                    <td>{s.tipo}</td>
-                                    <td>{s.modelo}</td>
-                                    <td>{s.placa_serie}</td>
-                                    <td className="max-w-40 truncate" title={s.empresa}>{s.empresa}</td>
-                                    <td>{formatDate(s.fecha_vencimiento)}</td>
-                                    <td>
-                                        <span
-                                            className="font-bold"
-                                            style={{ color: s.color }}
-                                        >
-                                            {s.dias_restantes < 0 ? `(${Math.abs(s.dias_restantes)}) vencido` : s.dias_restantes}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span
-                                            className="px-3 py-1 rounded-full text-xs font-semibold text-white"
-                                            style={{ backgroundColor: s.color }}
-                                        >
-                                            {s.accion_requerida}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {puedeEditar(userRole, 'soat') && (
-                                            <button
-                                                onClick={() => openRenovarModal(s)}
-                                                className="btn btn-primary py-2 px-3 text-sm"
-                                            >
-                                                <Edit size={16} />
-                                                Renovar
-                                            </button>
-                                        )}
+                            {soatFiltrado.length === 0 ? (
+                                <tr>
+                                    <td colSpan={7} className="text-center py-8 text-gray-500">
+                                        No hay registros de SOAT
                                     </td>
                                 </tr>
-                            ))}
+                            ) : (
+                                soatFiltrado.map((s) => (
+                                    <tr key={s.id}>
+                                        <td className="font-bold">{s.codigo}</td>
+                                        <td>{s.tipo}</td>
+                                        <td>{s.modelo}</td>
+                                        <td>{s.placa_serie}</td>
+                                        <td>{formatDate(s.fecha_vencimiento)}</td>
+                                        <td>
+                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                                s.dias_restantes < 0 ? 'bg-red-100 text-red-800' :
+                                                s.dias_restantes <= 7 ? 'bg-orange-100 text-orange-800' :
+                                                s.dias_restantes <= 30 ? 'bg-amber-100 text-amber-800' :
+                                                'bg-green-100 text-green-800'
+                                            }`}>
+                                                {s.dias_restantes < 0 ? 'VENCIDO' :
+                                                 s.dias_restantes <= 7 ? `${s.dias_restantes}d - URGENTE` :
+                                                 s.dias_restantes <= 30 ? `${s.dias_restantes}d - PRÓXIMO` :
+                                                 `${s.dias_restantes}d`}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div className="flex gap-2">
+                                                {puedeEditar(userRole, 'soat') && (
+                                                    <button
+                                                        onClick={() => openEditModal(s)}
+                                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                                                        title="Editar"
+                                                    >
+                                                        <Edit size={18} />
+                                                    </button>
+                                                )}
+                                                {puedeEliminar(userRole, 'soat') && (
+                                                    <button
+                                                        onClick={() => handleDelete(s.id, s.codigo)}
+                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                                                        title="Eliminar"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            {/* Modal Renovar */}
-            {showModal && selectedItem && (
+            {/* Modal */}
+            {showModal && (
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal-content max-w-md" onClick={e => e.stopPropagation()}>
-                        <div className="p-6 border-b border-gray-100">
-                            <div className="flex justify-between items-center">
-                                <h2 className="text-xl font-bold text-gray-800">Renovar SOAT</h2>
-                                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
-                                    <X size={24} />
-                                </button>
-                            </div>
+                    <div className="modal-content max-w-lg" onClick={e => e.stopPropagation()}>
+                        <div className="p-6 border-b flex justify-between items-center">
+                            <h2 className="text-xl font-bold">
+                                {editingItem ? 'Editar SOAT' : 'Agregar SOAT'}
+                            </h2>
+                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                                <X size={20} />
+                            </button>
                         </div>
-                        <div className="p-6">
-                            <div className="text-center mb-6">
-                                <p className="text-5xl mb-2">📋</p>
-                                <p className="font-bold text-xl text-gray-800">{selectedItem.codigo}</p>
-                                <p className="text-gray-500">{selectedItem.tipo} - {selectedItem.placa_serie}</p>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="label">Seleccionar Equipo</label>
+                                <select
+                                    className="input"
+                                    value={formData.codigo}
+                                    onChange={(e) => handleEquipoChange(e.target.value)}
+                                >
+                                    <option value="">Seleccionar...</option>
+                                    {EQUIPOS_MAESTRO.map(eq => (
+                                        <option key={eq.codigo} value={eq.codigo}>
+                                            {eq.codigo} - {eq.tipo} {eq.modelo} ({eq.serie})
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
 
-                            <div className="bg-gray-50 rounded-xl p-4 mb-4">
-                                <p className="text-sm text-gray-500">Vencimiento actual</p>
-                                <p className="text-lg font-bold text-gray-800">{formatDate(selectedItem.fecha_vencimiento)}</p>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="label">Tipo</label>
+                                    <input
+                                        type="text"
+                                        className="input bg-gray-50"
+                                        value={formData.tipo}
+                                        readOnly
+                                    />
+                                </div>
+                                <div>
+                                    <label className="label">Modelo</label>
+                                    <input
+                                        type="text"
+                                        className="input bg-gray-50"
+                                        value={formData.modelo}
+                                        readOnly
+                                    />
+                                </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Nueva fecha de vencimiento</label>
+                                <label className="label">Placa / Serie</label>
+                                <input
+                                    type="text"
+                                    className="input bg-gray-50"
+                                    value={formData.placa_serie}
+                                    readOnly
+                                />
+                            </div>
+
+                            <div>
+                                <label className="label">Fecha de Vencimiento *</label>
                                 <input
                                     type="date"
-                                    className="input text-lg"
-                                    value={newFecha}
-                                    onChange={e => setNewFecha(e.target.value)}
+                                    className="input"
+                                    value={formData.fecha_vencimiento}
+                                    onChange={(e) => setFormData({ ...formData, fecha_vencimiento: e.target.value })}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="label">Empresa</label>
+                                <input
+                                    type="text"
+                                    className="input"
+                                    value={formData.empresa}
+                                    onChange={(e) => setFormData({ ...formData, empresa: e.target.value })}
                                 />
                             </div>
                         </div>
-                        <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
-                            <button onClick={() => setShowModal(false)} className="btn btn-outline">
-                                Cancelar
-                            </button>
-                            <button onClick={renovarSoat} className="btn btn-primary">
+                        <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
+                            <button onClick={() => setShowModal(false)} className="btn btn-outline">Cancelar</button>
+                            <button onClick={handleSave} className="btn btn-primary">
                                 <Save size={18} />
-                                Guardar Renovación
+                                {editingItem ? 'Guardar Cambios' : 'Agregar SOAT'}
                             </button>
                         </div>
                     </div>
