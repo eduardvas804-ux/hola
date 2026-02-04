@@ -148,19 +148,13 @@ export function PWAProvider({ children }: { children: ReactNode }) {
     // Instalar app
     const instalarApp = useCallback(async (): Promise<boolean> => {
         if (!deferredPrompt) {
-            // Si no hay prompt, mostrar instrucciones manuales
+            // Si no hay prompt, la app ya está instalada o no es instalable
             if (state.estaInstalado) {
                 console.log('[PWA] La app ya está instalada');
                 return true;
             }
-
-            // Instrucciones para instalación manual
-            const esIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            if (esIOS) {
-                alert('Para instalar en iOS:\n1. Toca el botón Compartir\n2. Selecciona "Añadir a pantalla de inicio"');
-            } else {
-                alert('Para instalar:\n1. Abre el menú del navegador (⋮)\n2. Selecciona "Instalar app" o "Añadir a pantalla de inicio"');
-            }
+            // Retornar false - el modal de InstallPrompt mostrará las instrucciones
+            console.log('[PWA] No hay prompt disponible, mostrar instrucciones manuales');
             return false;
         }
 
