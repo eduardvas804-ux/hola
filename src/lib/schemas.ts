@@ -1,80 +1,95 @@
 import { z } from 'zod';
 
-// Schema para Maquinaria
+// Schema para Maquinaria - coincide con el tipo Maquinaria en types.ts
 export const MaquinariaSchema = z.object({
     item: z.number().min(1, 'El número de item es requerido'),
     serie: z.string().min(1, 'La serie es requerida'),
-    codigo_equipo: z.string().min(1, 'El código de equipo es requerido'),
-    tipo: z.enum(['excavadora', 'retroexcavadora', 'cargador_frontal', 'tractor_oruga', 'rodillo', 'volquete', 'camion', 'cisterna', 'minivan', 'camioneta', 'automovil', 'moto'], {
+    codigo: z.string().min(1, 'El código es requerido'),
+    tipo: z.enum([
+        'EXCAVADORA',
+        'RETROEXCAVADORA',
+        'CARGADOR FRONTAL',
+        'TRACTOR ORUGA',
+        'MOTONIVELADORA',
+        'RODILLO',
+        'VOLQUETE',
+        'CAMION',
+        'CISTERNA DE AGUA',
+        'CISTERNA DE COMBUSTIBLE',
+        'CAMIONETA'
+    ], {
         errorMap: () => ({ message: 'Seleccione un tipo válido' }),
     }),
     marca: z.string().min(1, 'La marca es requerida'),
     modelo: z.string().min(1, 'El modelo es requerido'),
-    ano: z.number().min(1980, 'El año debe ser mayor a 1980').max(new Date().getFullYear() + 1, 'Año inválido'),
-    estado: z.enum(['operativo', 'mantenimiento', 'inoperativo', 'alquilado'], {
+    año: z.number().min(1980, 'El año debe ser mayor a 1980').max(new Date().getFullYear() + 1, 'Año inválido'),
+    estado: z.enum(['OPERATIVO', 'EN MANTENIMIENTO', 'INOPERATIVO', 'ALQUILADO'], {
         errorMap: () => ({ message: 'Seleccione un estado válido' }),
     }),
-    operador: z.string().optional().nullable(),
-    ubicacion: z.string().optional().nullable(),
-    hours_actuales: z.number().min(0, 'Las horas no pueden ser negativas').optional().nullable(),
-    proximo_mantenimiento: z.number().min(0, 'Las horas de próximo mantenimiento no pueden ser negativas').optional().nullable(),
-    placa: z.string().optional().nullable(),
-    observaciones: z.string().optional().nullable(),
+    operador: z.string().optional(),
+    empresa: z.string().optional(),
+    tramo: z.string().optional(),
+    horas_actuales: z.number().min(0, 'Las horas no pueden ser negativas').optional(),
+    alerta_mtto: z.boolean().optional(),
 });
 
 // Schema para crear Maquinaria (sin ID)
 export const CreateMaquinariaSchema = MaquinariaSchema;
 
-// Schema para actualizar Maquinaria (todos los campos opcionales excepto ID)
+// Schema para actualizar Maquinaria (todos los campos opcionales)
 export const UpdateMaquinariaSchema = MaquinariaSchema.partial();
 
-// Schema para Mantenimiento
+// Schema para Mantenimiento - coincide con el tipo Mantenimiento en types.ts
 export const MantenimientoSchema = z.object({
-    maquinaria_id: z.string().uuid('ID de maquinaria inválido'),
-    fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)'),
-    tipo: z.enum(['preventivo', 'correctivo', 'predictivo', 'emergencia']),
-    descripcion: z.string().min(5, 'La descripción debe tener al menos 5 caracteres'),
-    horas_realizadas: z.number().min(0, 'Las horas no pueden ser negativas'),
-    costo: z.number().min(0, 'El costo no puede ser negativo').optional().nullable(),
-    tecnico: z.string().min(1, 'El técnico es requerido').optional().nullable(),
-    repuestos: z.string().optional().nullable(),
-    observaciones: z.string().optional().nullable(),
+    codigo_maquina: z.string().min(1, 'El código de máquina es requerido'),
+    mantenimiento_ultimo: z.number().min(0, 'Las horas no pueden ser negativas'),
+    mantenimiento_proximo: z.number().min(0, 'Las horas no pueden ser negativas'),
+    hora_actual: z.number().min(0, 'Las horas no pueden ser negativas'),
+    diferencia_horas: z.number(),
+    operador: z.string().optional(),
+    tramo: z.string().optional(),
+    fecha_programada: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)').optional(),
+    tipo_mantenimiento: z.enum([
+        'PREVENTIVO 250H',
+        'PREVENTIVO 500H',
+        'PREVENTIVO 1000H',
+        'PREVENTIVO 2000H',
+        'PREVENTIVO 4000H',
+        'CORRECTIVO'
+    ]),
+    estado_alerta: z.enum(['URGENTE', 'PROXIMO', 'EN REGLA', 'VENCIDO']),
 });
 
-// Schema para SOAT
+// Schema para SOAT - coincide con el tipo SOAT en types.ts
 export const SOATSchema = z.object({
-    codigo_equipo: z.string().min(1, 'El código de equipo es requerido'),
-    numero_poliza: z.string().min(1, 'El número de póliza es requerido'),
-    aseguradora: z.string().min(1, 'La aseguradora es requerida'),
-    fecha_inicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido'),
+    codigo: z.string().min(1, 'El código es requerido'),
+    tipo: z.string().min(1, 'El tipo es requerido'),
+    modelo: z.string().min(1, 'El modelo es requerido'),
+    placa_serie: z.string().min(1, 'La placa/serie es requerida'),
+    empresa: z.string().min(1, 'La empresa es requerida'),
     fecha_vencimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido'),
-    costo: z.number().min(0, 'El costo no puede ser negativo').optional().nullable(),
-    observaciones: z.string().optional().nullable(),
-}).refine((data) => new Date(data.fecha_vencimiento) > new Date(data.fecha_inicio), {
-    message: 'La fecha de vencimiento debe ser posterior a la fecha de inicio',
-    path: ['fecha_vencimiento'],
+    dias_restantes: z.number(),
+    accion_requerida: z.string().optional(),
 });
 
-// Schema para CITV
+// Schema para CITV - coincide con el tipo CITV en types.ts
 export const CITVSchema = z.object({
-    codigo_equipo: z.string().min(1, 'El código de equipo es requerido'),
-    numero_certificado: z.string().min(1, 'El número de certificado es requerido'),
-    entidad: z.string().min(1, 'La entidad certificadora es requerida'),
-    fecha_inspeccion: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido'),
+    codigo: z.string().min(1, 'El código es requerido'),
+    tipo: z.string().min(1, 'El tipo es requerido'),
+    modelo: z.string().min(1, 'El modelo es requerido'),
+    placa_serie: z.string().min(1, 'La placa/serie es requerida'),
+    empresa: z.string().min(1, 'La empresa es requerida'),
     fecha_vencimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido'),
-    resultado: z.enum(['aprobado', 'observado', 'desaprobado']),
-    observaciones: z.string().optional().nullable(),
-}).refine((data) => new Date(data.fecha_vencimiento) > new Date(data.fecha_inspeccion), {
-    message: 'La fecha de vencimiento debe ser posterior a la fecha de inspección',
-    path: ['fecha_vencimiento'],
+    dias_restantes: z.number(),
+    accion_requerida: z.string().optional(),
 });
 
 // Schema para Usuario
 export const UserProfileSchema = z.object({
     email: z.string().email('Email inválido'),
-    nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
+    nombre_completo: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
     rol: z.enum(['admin', 'supervisor', 'operador', 'visualizador']),
-    estado: z.enum(['activo', 'inactivo']).optional(),
+    activo: z.boolean().optional(),
 });
 
 // Schema para crear Usuario (incluye password)
@@ -93,7 +108,7 @@ export const LoginSchema = z.object({
 
 // Schema para actualizar horas
 export const UpdateHoursSchema = z.object({
-    hours_actuales: z.number().min(0, 'Las horas no pueden ser negativas'),
+    horas_actuales: z.number().min(0, 'Las horas no pueden ser negativas'),
 });
 
 // Schema para registro de mantenimiento completado

@@ -79,9 +79,9 @@ export function exportMaquinariaPDF(data: Maquinaria[], filters?: string) {
     const startY = addHeader(doc, 'Reporte de Maquinaria', filters);
 
     // Estadísticas rápidas
-    const operativos = data.filter(m => m.estado === 'operativo').length;
-    const mantenimiento = data.filter(m => m.estado === 'mantenimiento').length;
-    const inoperativos = data.filter(m => m.estado === 'inoperativo').length;
+    const operativos = data.filter(m => m.estado === 'OPERATIVO').length;
+    const mantenimiento = data.filter(m => m.estado === 'EN MANTENIMIENTO').length;
+    const inoperativos = data.filter(m => m.estado === 'INOPERATIVO').length;
 
     doc.setFontSize(10);
     doc.setTextColor(60);
@@ -90,18 +90,18 @@ export function exportMaquinariaPDF(data: Maquinaria[], filters?: string) {
     // Tabla de datos
     autoTable(doc, {
         startY: startY + 2,
-        head: [['#', 'Código', 'Serie', 'Tipo', 'Marca/Modelo', 'Año', 'Estado', 'Operador', 'Ubicación', 'Horas']],
+        head: [['#', 'Código', 'Serie', 'Tipo', 'Marca/Modelo', 'Año', 'Estado', 'Operador', 'Tramo', 'Horas']],
         body: data.map((m, i) => [
             i + 1,
-            m.codigo_equipo || '-',
+            m.codigo || '-',
             m.serie,
             m.tipo,
             `${m.marca} ${m.modelo}`,
-            m.ano,
-            m.estado.toUpperCase(),
+            m.año,
+            m.estado,
             m.operador || '-',
-            m.ubicacion || '-',
-            m.hours_actuales?.toLocaleString() || '-',
+            m.tramo || '-',
+            m.horas_actuales?.toLocaleString() || '-',
         ]),
         styles: { fontSize: 8, cellPadding: 2 },
         headStyles: {
@@ -139,18 +139,15 @@ export function exportDocumentosPDF(
 
         autoTable(doc, {
             startY: currentY,
-            head: [['Equipo', 'Póliza', 'Aseguradora', 'Vencimiento', 'Estado']],
-            body: soatData.map((s) => {
-                const dias = Math.ceil((new Date(s.fecha_vencimiento).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-                const estado = dias < 0 ? 'VENCIDO' : dias <= 30 ? 'PRÓXIMO' : 'VIGENTE';
-                return [
-                    s.codigo_equipo,
-                    s.numero_poliza,
-                    s.aseguradora,
-                    format(new Date(s.fecha_vencimiento), 'dd/MM/yyyy'),
-                    estado,
-                ];
-            }),
+            head: [['Código', 'Tipo', 'Modelo', 'Placa/Serie', 'Vencimiento', 'Días Rest.']],
+            body: soatData.map((s) => [
+                s.codigo,
+                s.tipo,
+                s.modelo,
+                s.placa_serie,
+                format(new Date(s.fecha_vencimiento), 'dd/MM/yyyy'),
+                s.dias_restantes,
+            ]),
             styles: { fontSize: 9 },
             headStyles: { fillColor: PDF_CONFIG.headerColor },
         });
@@ -174,18 +171,15 @@ export function exportDocumentosPDF(
 
         autoTable(doc, {
             startY: currentY,
-            head: [['Equipo', 'Certificado', 'Entidad', 'Vencimiento', 'Estado']],
-            body: citvData.map((c) => {
-                const dias = Math.ceil((new Date(c.fecha_vencimiento).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-                const estado = dias < 0 ? 'VENCIDO' : dias <= 30 ? 'PRÓXIMO' : 'VIGENTE';
-                return [
-                    c.codigo_equipo,
-                    c.numero_certificado,
-                    c.entidad,
-                    format(new Date(c.fecha_vencimiento), 'dd/MM/yyyy'),
-                    estado,
-                ];
-            }),
+            head: [['Código', 'Tipo', 'Modelo', 'Placa/Serie', 'Vencimiento', 'Días Rest.']],
+            body: citvData.map((c) => [
+                c.codigo,
+                c.tipo,
+                c.modelo,
+                c.placa_serie,
+                format(new Date(c.fecha_vencimiento), 'dd/MM/yyyy'),
+                c.dias_restantes,
+            ]),
             styles: { fontSize: 9 },
             headStyles: { fillColor: PDF_CONFIG.headerColor },
         });
@@ -261,12 +255,12 @@ export function exportMantenimientosPDF(
 
     // Contadores
     const pendientes = data.filter(m => {
-        const diff = (m.proximo_mantenimiento || 0) - (m.hours_actuales || 0);
+        const diff = (m.mantenimiento_proximo || 0) - (m.hora_actual || 0);
         return diff <= 0;
     }).length;
 
     const proximos = data.filter(m => {
-        const diff = (m.proximo_mantenimiento || 0) - (m.hours_actuales || 0);
+        const diff = (m.mantenimiento_proximo || 0) - (m.hora_actual || 0);
         return diff > 0 && diff <= 50;
     }).length;
 
@@ -276,21 +270,20 @@ export function exportMantenimientosPDF(
 
     autoTable(doc, {
         startY: startY + 2,
-        head: [['#', 'Código', 'Serie', 'Tipo', 'Horas Actuales', 'Próx. Mtto', 'Hrs Restantes', 'Estado', 'Operador', 'Ubicación']],
+        head: [['#', 'Código', 'Tipo Mtto', 'Último Mtto', 'Próx. Mtto', 'Hrs Actuales', 'Diferencia', 'Estado', 'Operador', 'Tramo']],
         body: data.map((m, i) => {
-            const hrsRestantes = (m.proximo_mantenimiento || 0) - (m.hours_actuales || 0);
-            const estado = hrsRestantes <= 0 ? 'VENCIDO' : hrsRestantes <= 50 ? 'PRÓXIMO' : 'AL DÍA';
+            const estado = m.diferencia_horas <= 0 ? 'VENCIDO' : m.diferencia_horas <= 50 ? 'PRÓXIMO' : 'AL DÍA';
             return [
                 i + 1,
-                m.codigo_equipo || '-',
-                m.serie,
-                m.tipo,
-                m.hours_actuales?.toLocaleString() || '-',
-                m.proximo_mantenimiento?.toLocaleString() || '-',
-                hrsRestantes,
+                m.codigo_maquina || '-',
+                m.tipo_mantenimiento || '-',
+                m.mantenimiento_ultimo?.toLocaleString() || '-',
+                m.mantenimiento_proximo?.toLocaleString() || '-',
+                m.hora_actual?.toLocaleString() || '-',
+                m.diferencia_horas,
                 estado,
                 m.operador || '-',
-                m.ubicacion || '-',
+                m.tramo || '-',
             ];
         }),
         styles: { fontSize: 8, cellPadding: 2 },
