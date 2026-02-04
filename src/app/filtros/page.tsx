@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { fetchTable, deleteRow, registrarCambio } from '@/lib/api';
 import { Search, Download, ShoppingCart, Check, Printer, ChevronDown, X, Trash2 } from 'lucide-react';
 import { exportToExcel, formatFiltrosForExport } from '@/lib/export';
-import { EQUIPOS_MAESTRO, getCodigoConSerie, getSeriePorCodigo, getTipoPorCodigo, getModeloPorCodigo } from '@/lib/equipos-data';
+import { EQUIPOS_MAESTRO, getCodigoReal, getSerieReal, getTipoReal, getModeloReal, getEquipoPorCodigoOSerie } from '@/lib/equipos-data';
 import { useAuth } from '@/components/auth-provider';
 import { puedeEliminar } from '@/lib/permisos';
 import { Role, Filtro } from '@/lib/types';
@@ -58,9 +58,11 @@ export default function FiltrosPage() {
 
         if (searchTerm) {
             const search = searchTerm.toLowerCase();
-            const serie = getSeriePorCodigo(f.maquinaria_codigo).toLowerCase();
+            const codigo = getCodigoReal(f.maquinaria_codigo).toLowerCase();
+            const serie = getSerieReal(f.maquinaria_codigo).toLowerCase();
             return (
                 f.maquinaria_codigo.toLowerCase().includes(search) ||
+                codigo.includes(search) ||
                 serie.includes(search) ||
                 (f.filtro_separador_1 || '').toLowerCase().includes(search) ||
                 (f.filtro_combustible_1 || '').toLowerCase().includes(search) ||
@@ -185,7 +187,7 @@ export default function FiltrosPage() {
                 <div class="equipos">
                     <h3>Equipos Seleccionados (${selectedFiltros.length}):</h3>
                     <ul>
-                        ${selectedFiltros.map(f => `<li>• ${getCodigoConSerie(f.maquinaria_codigo)}</li>`).join('')}
+                        ${selectedFiltros.map(f => `<li>• ${getCodigoReal(f.maquinaria_codigo)} (${getSerieReal(f.maquinaria_codigo)})</li>`).join('')}
                     </ul>
                 </div>
                 <script>window.onload = function() { window.print(); }</script>
@@ -271,7 +273,7 @@ export default function FiltrosPage() {
                                 className="w-full input flex items-center justify-between text-left"
                             >
                                 <span className={filterCodigo ? 'text-gray-800' : 'text-gray-400'}>
-                                    {filterCodigo ? `${filterCodigo} - ${getTipoPorCodigo(filterCodigo)} ${getModeloPorCodigo(filterCodigo)} (${getSeriePorCodigo(filterCodigo)})` : 'Todos los equipos...'}
+                                    {filterCodigo ? `${filterCodigo} - ${getTipoReal(filterCodigo)} ${getModeloReal(filterCodigo)} (${getSerieReal(filterCodigo)})` : 'Todos los equipos...'}
                                 </span>
                                 <ChevronDown size={18} className={`text-gray-400 transition-transform ${showCodigoFilter ? 'rotate-180' : ''}`} />
                             </button>
@@ -370,12 +372,12 @@ export default function FiltrosPage() {
                         >
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-xl font-bold">{f.maquinaria_codigo}</h3>
+                                    <h3 className="text-xl font-bold">{getCodigoReal(f.maquinaria_codigo)}</h3>
                                     <p className={`text-sm ${selectedItems.includes(f.id) ? 'text-blue-100' : 'text-slate-300'}`}>
-                                        {getTipoPorCodigo(f.maquinaria_codigo)} {getModeloPorCodigo(f.maquinaria_codigo)}
+                                        {getTipoReal(f.maquinaria_codigo)} {getModeloReal(f.maquinaria_codigo)}
                                     </p>
                                     <p className={`text-xs ${selectedItems.includes(f.id) ? 'text-blue-200' : 'text-slate-400'}`}>
-                                        Serie: {getSeriePorCodigo(f.maquinaria_codigo) || 'N/A'}
+                                        Serie: {getSerieReal(f.maquinaria_codigo) || 'N/A'}
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-2">

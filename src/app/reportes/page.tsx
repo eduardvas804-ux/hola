@@ -47,6 +47,17 @@ export default function ReportesPage() {
         fetchData();
     }, [profile, userRole, router]);
 
+    // Función para calcular días restantes
+    function calcularDiasRestantes(fechaVencimiento: string): number {
+        if (!fechaVencimiento) return 999;
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        const vencimiento = new Date(fechaVencimiento);
+        vencimiento.setHours(0, 0, 0, 0);
+        const diffTime = vencimiento.getTime() - hoy.getTime();
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+
     async function fetchData() {
         try {
             const [maq, mtto, soatData, citvData, combData] = await Promise.all([
@@ -59,8 +70,21 @@ export default function ReportesPage() {
 
             setMaquinaria(maq || []);
             setMantenimientos(mtto || []);
-            setSoat(soatData || []);
-            setCitv(citvData || []);
+
+            // Calcular días restantes para SOAT
+            const soatConDias = (soatData || []).map((s: any) => ({
+                ...s,
+                dias_restantes: calcularDiasRestantes(s.fecha_vencimiento)
+            }));
+            setSoat(soatConDias);
+
+            // Calcular días restantes para CITV
+            const citvConDias = (citvData || []).map((c: any) => ({
+                ...c,
+                dias_restantes: calcularDiasRestantes(c.fecha_vencimiento)
+            }));
+            setCitv(citvConDias);
+
             setCombustible(combData || []);
         } catch (error) {
             console.error('Error:', error);

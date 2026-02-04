@@ -147,6 +147,41 @@ export function getEquiposPorTipo(tipo: string): Equipo[] {
     return EQUIPOS_MAESTRO.filter(e => e.tipo === tipo);
 }
 
+// Función inteligente: obtener equipo por código O serie
+export function getEquipoPorCodigoOSerie(valor: string): Equipo | undefined {
+    // Primero buscar por código
+    let equipo = EQUIPOS_MAESTRO.find(e => e.codigo.toLowerCase() === valor.toLowerCase());
+    if (equipo) return equipo;
+
+    // Si no encuentra, buscar por serie
+    equipo = EQUIPOS_MAESTRO.find(e => e.serie.toLowerCase() === valor.toLowerCase());
+    return equipo;
+}
+
+// Función para obtener el código real (si se pasa serie, devuelve código)
+export function getCodigoReal(valor: string): string {
+    const equipo = getEquipoPorCodigoOSerie(valor);
+    return equipo?.codigo || valor;
+}
+
+// Función para obtener serie (si se pasa código o serie, devuelve serie)
+export function getSerieReal(valor: string): string {
+    const equipo = getEquipoPorCodigoOSerie(valor);
+    return equipo?.serie || valor;
+}
+
+// Función para obtener tipo (funciona con código o serie)
+export function getTipoReal(valor: string): string {
+    const equipo = getEquipoPorCodigoOSerie(valor);
+    return equipo?.tipo || '';
+}
+
+// Función para obtener modelo (funciona con código o serie)
+export function getModeloReal(valor: string): string {
+    const equipo = getEquipoPorCodigoOSerie(valor);
+    return equipo?.modelo || '';
+}
+
 // Buscar equipo por cualquier campo (código, serie, modelo)
 export function buscarEquipoPorIdentificador(identificador: string): Equipo | undefined {
     const term = identificador.toLowerCase();
