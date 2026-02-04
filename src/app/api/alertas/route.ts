@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
     try {
-        const { tipo, destinatarios } = await request.json();
+        const { destinatarios } = await request.json();
 
         if (!process.env.RESEND_API_KEY) {
             return NextResponse.json(

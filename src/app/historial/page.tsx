@@ -7,12 +7,10 @@ import {
     History,
     RotateCcw,
     Search,
-    Filter,
     ChevronDown,
     ChevronUp,
     User,
     Calendar,
-    Database,
     Eye,
     AlertTriangle
 } from 'lucide-react';
@@ -22,8 +20,8 @@ interface HistorialItem {
     tabla: string;
     accion: 'CREATE' | 'UPDATE' | 'DELETE';
     registro_id: string;
-    datos_anteriores: any;
-    datos_nuevos: any;
+    datos_anteriores: Record<string, unknown> | null;
+    datos_nuevos: Record<string, unknown> | null;
     usuario_id: string;
     usuario_email: string;
     usuario_nombre: string;
@@ -176,9 +174,10 @@ export default function HistorialPage() {
 
             alert('Registro restaurado exitosamente');
             fetchHistorial();
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error restoring:', error);
-            alert('Error al restaurar: ' + error.message);
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+            alert('Error al restaurar: ' + errorMessage);
         }
     }
 

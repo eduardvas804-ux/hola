@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Search, X } from 'lucide-react';
-import { EQUIPOS_MAESTRO, Equipo, getCodigoPorSerie } from '@/lib/equipos-data';
+import { EQUIPOS_MAESTRO } from '@/lib/equipos-data';
 import { ICONOS_MAQUINARIA, TipoMaquinaria } from '@/lib/types';
 
 interface EquipoSelectorProps {

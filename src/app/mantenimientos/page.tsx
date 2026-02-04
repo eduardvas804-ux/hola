@@ -6,26 +6,48 @@ import {
     AlertTriangle,
     CheckCircle,
     Clock,
-    Plus,
     Save,
     X,
     Download,
-    Edit,
     Pencil,
     ChevronDown,
     Search
 } from 'lucide-react';
 import { fetchTable, updateRow, registrarCambio } from '@/lib/api';
-import { formatNumber, formatDate, calcularAlertaMantenimiento, getColorAlertaMantenimiento } from '@/lib/utils';
+import { formatNumber, getColorAlertaMantenimiento } from '@/lib/utils';
 import { EstadoAlerta, ICONOS_MAQUINARIA, TipoMaquinaria } from '@/lib/types';
 import { exportToExcel, formatMantenimientosForExport } from '@/lib/export';
 import { useAuth } from '@/components/auth-provider';
-import { puedeVer, puedeEditar, puedeExportar, Seccion } from '@/lib/permisos';
+import { puedeVer, puedeEditar, puedeExportar } from '@/lib/permisos';
 import { Role } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { getSeriePorCodigo, getCodigoConSerie } from '@/lib/equipos-data';
 
-const DEMO_MANTENIMIENTOS = [
+// Tipo para los mantenimientos mostrados
+interface MantenimientoDisplay {
+    id: string;
+    codigo_maquina: string;
+    tipo: string;
+    modelo: string;
+    mantenimiento_ultimo: number;
+    mantenimiento_proximo: number;
+    hora_actual: number;
+    diferencia_horas: number;
+    operador: string;
+    tramo: string;
+    tipo_mantenimiento: string;
+    estado_alerta: string;
+}
+
+// Tipo para el formulario de edición
+interface EditFormState {
+    hora_actual: number | string;
+    mantenimiento_proximo: number | string;
+    operador: string;
+    tramo: string;
+}
+
+const DEMO_MANTENIMIENTOS: MantenimientoDisplay[] = [
     { id: '1', codigo_maquina: 'EXC-01', tipo: 'EXCAVADORA', modelo: '320D', mantenimiento_ultimo: 15362, mantenimiento_proximo: 15612, hora_actual: 15612, diferencia_horas: 0, operador: 'JOSE ABANTO', tramo: 'CVP KM 25', tipo_mantenimiento: 'PREVENTIVO 250H', estado_alerta: 'VENCIDO' },
     { id: '2', codigo_maquina: 'MOT-01', tipo: 'MOTONIVELADORA', modelo: '135H', mantenimiento_ultimo: 12200, mantenimiento_proximo: 12450, hora_actual: 12420, diferencia_horas: 30, operador: 'CARLOS RUIZ', tramo: 'TONGOT', tipo_mantenimiento: 'PREVENTIVO 250H', estado_alerta: 'URGENTE' },
     { id: '3', codigo_maquina: 'CAR-01', tipo: 'CARGADOR FRONTAL', modelo: '950H', mantenimiento_ultimo: 8650, mantenimiento_proximo: 8900, hora_actual: 8830, diferencia_horas: 70, operador: 'PEDRO SILVA', tramo: 'ALMACEN', tipo_mantenimiento: 'PREVENTIVO 250H', estado_alerta: 'PROXIMO' },
@@ -41,8 +63,13 @@ export default function MantenimientosPage() {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
-    const [selectedItem, setSelectedItem] = useState<any>(null);
-    const [editForm, setEditForm] = useState<any>({});
+    const [selectedItem, setSelectedItem] = useState<MantenimientoDisplay | null>(null);
+    const [editForm, setEditForm] = useState<EditFormState>({
+        hora_actual: 0,
+        mantenimiento_proximo: 0,
+        operador: '',
+        tramo: ''
+    });
     const [filterCodigo, setFilterCodigo] = useState<string>('');
     const [showCodigoFilter, setShowCodigoFilter] = useState(false);
     const [searchCodigo, setSearchCodigo] = useState('');
@@ -62,7 +89,7 @@ export default function MantenimientosPage() {
 
     async function fetchData() {
         try {
-            const data = await fetchTable<any>('mantenimientos', '&order=diferencia_horas');
+            const data = await fetchTable<MantenimientoDisplay>('mantenimientos', '&order=diferencia_horas');
             if (data?.length > 0) {
                 setMantenimientos(data);
                 setUsingDemo(false);
@@ -89,12 +116,12 @@ export default function MantenimientosPage() {
         enRegla: mantenimientos.filter(m => m.estado_alerta === 'EN REGLA').length,
     };
 
-    function openRegisterModal(item: any) {
+    function openRegisterModal(item: MantenimientoDisplay) {
         setSelectedItem(item);
         setShowModal(true);
     }
 
-    function openEditModal(item: any) {
+    function openEditModal(item: MantenimientoDisplay) {
         setSelectedItem(item);
         setEditForm({
             hora_actual: item.hora_actual,
@@ -114,8 +141,8 @@ export default function MantenimientosPage() {
             nombre: profile?.nombre_completo || 'Usuario Demo'
         };
 
-        const horaActual = parseFloat(editForm.hora_actual) || selectedItem.hora_actual;
-        const mttoProximo = parseFloat(editForm.mantenimiento_proximo) || selectedItem.mantenimiento_proximo;
+        const horaActual = parseFloat(String(editForm.hora_actual)) || selectedItem.hora_actual;
+        const mttoProximo = parseFloat(String(editForm.mantenimiento_proximo)) || selectedItem.mantenimiento_proximo;
         const diferencia = mttoProximo - horaActual;
 
         let estadoAlerta = 'EN REGLA';

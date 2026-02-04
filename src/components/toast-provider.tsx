@@ -116,20 +116,4 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
     );
 }
 
-// Estilos de animación (agregar a globals.css si no existe)
-const styles = `
-@keyframes slideIn {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-
-.animate-slideIn {
-    animation: slideIn 0.3s ease-out;
-}
-`;
+// Nota: Los estilos de animación slideIn están definidos en globals.css

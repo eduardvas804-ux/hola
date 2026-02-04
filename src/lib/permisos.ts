@@ -123,7 +123,7 @@ export function getSeccionesPermitidas(rol: Role | undefined): Seccion[] {
     if (!rol) return [];
     const permisosRol = PERMISOS[rol];
     return Object.entries(permisosRol)
-        .filter(([_, permisos]) => permisos.includes('ver'))
+        .filter(([, permisos]) => permisos.includes('ver'))
         .map(([seccion]) => seccion as Seccion);
 }
 

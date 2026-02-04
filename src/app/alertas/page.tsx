@@ -250,7 +250,7 @@ export default function AlertasPage() {
                 total: prev.total - 1
             }));
 
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error eliminando:', error);
             setMensaje({ tipo: 'error', texto: 'Error al eliminar' });
         }
@@ -287,10 +287,11 @@ export default function AlertasPage() {
             } else {
                 throw new Error(result.error || 'Error enviando email');
             }
-        } catch (error: any) {
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Error al enviar el email';
             setMensaje({
                 tipo: 'error',
-                texto: error.message || 'Error al enviar el email'
+                texto: errorMessage
             });
         } finally {
             setSending(false);

@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { fetchTable, deleteRow, registrarCambio } from '@/lib/api';
-import { Search, Download, ShoppingCart, Check, Printer, ChevronDown, X, Trash2, Plus } from 'lucide-react';
+import { Search, Download, ShoppingCart, Check, Printer, ChevronDown, X, Trash2 } from 'lucide-react';
 import { exportToExcel, formatFiltrosForExport } from '@/lib/export';
-import { EQUIPOS_MAESTRO, getCodigoConSerie, getSeriePorCodigo, getEquipoPorSerie, getTipoPorCodigo, getModeloPorCodigo } from '@/lib/equipos-data';
+import { EQUIPOS_MAESTRO, getCodigoConSerie, getSeriePorCodigo, getTipoPorCodigo, getModeloPorCodigo } from '@/lib/equipos-data';
 import { useAuth } from '@/components/auth-provider';
 import { puedeEliminar } from '@/lib/permisos';
-import { Role } from '@/lib/types';
+import { Role, Filtro } from '@/lib/types';
 
 const DEMO_FILTROS = [
     { id: '1', maquinaria_codigo: 'EXC-01', filtro_separador_1: '438-5386', cantidad_sep_1: 1, filtro_combustible_1: '1R-0751', cantidad_comb_1: 2, filtro_aceite_motor: '1R-0739', cantidad_aceite: 1, filtro_aire_primario: '131-8822', cantidad_aire_prim: 1, filtro_aire_secundario: '131-8821', cantidad_aire_sec: 1 },
@@ -19,7 +19,7 @@ const DEMO_FILTROS = [
 ];
 
 export default function FiltrosPage() {
-    const [filtros, setFiltros] = useState<any[]>(DEMO_FILTROS);
+    const [filtros, setFiltros] = useState<Filtro[]>(DEMO_FILTROS as Filtro[]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCodigo, setFilterCodigo] = useState('');
@@ -37,24 +37,21 @@ export default function FiltrosPage() {
 
     async function fetchData() {
         try {
-            const data = await fetchTable<any>('filtros');
+            const data = await fetchTable<Filtro>('filtros');
             if (data?.length > 0) {
                 setUsingDemo(false);
                 setFiltros(data);
             } else {
                 setUsingDemo(true);
-                setFiltros(DEMO_FILTROS);
+                setFiltros(DEMO_FILTROS as Filtro[]);
             }
         } catch {
             setUsingDemo(true);
-            setFiltros(DEMO_FILTROS);
+            setFiltros(DEMO_FILTROS as Filtro[]);
         } finally {
             setLoading(false);
         }
     }
-
-    // Códigos únicos para dropdown - usar datos maestros
-    const codigosUnicos = [...new Set(filtros.map(f => f.maquinaria_codigo))].sort();
 
     const filteredFiltros = filtros.filter(f => {
         if (filterCodigo && f.maquinaria_codigo !== filterCodigo) return false;

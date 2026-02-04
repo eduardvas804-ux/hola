@@ -44,12 +44,12 @@ const DEMO_MAQUINARIA = [
 ];
 
 export default function MaquinariaPage() {
-    const [maquinaria, setMaquinaria] = useState<any[]>(DEMO_MAQUINARIA);
-    const [filteredData, setFilteredData] = useState<any[]>(DEMO_MAQUINARIA);
+    const [maquinaria, setMaquinaria] = useState<Maquinaria[]>(DEMO_MAQUINARIA as Maquinaria[]);
+    const [filteredData, setFilteredData] = useState<Maquinaria[]>(DEMO_MAQUINARIA as Maquinaria[]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [showHorasModal, setShowHorasModal] = useState(false);
-    const [editingItem, setEditingItem] = useState<any>(null);
+    const [editingItem, setEditingItem] = useState<Maquinaria | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCodigo, setFilterCodigo] = useState('');
     const { profile, user } = useAuth();
@@ -100,11 +100,11 @@ export default function MaquinariaPage() {
                 setMaquinaria(data);
             } else {
                 setUsingDemo(true);
-                setMaquinaria(DEMO_MAQUINARIA);
+                setMaquinaria(DEMO_MAQUINARIA as Maquinaria[]);
             }
         } catch {
             setUsingDemo(true);
-            setMaquinaria(DEMO_MAQUINARIA);
+            setMaquinaria(DEMO_MAQUINARIA as Maquinaria[]);
         } finally {
             setLoading(false);
         }
@@ -146,13 +146,13 @@ export default function MaquinariaPage() {
         setShowModal(true);
     }
 
-    function openEditModal(item: any) {
+    function openEditModal(item: Maquinaria) {
         setFormData(item);
         setEditingItem(item);
         setShowModal(true);
     }
 
-    function openHorasModal(item: any) {
+    function openHorasModal(item: Maquinaria) {
         setEditingItem(item);
         setNewHoras(item.horas_actuales.toString());
         setShowHorasModal(true);
@@ -205,6 +205,8 @@ export default function MaquinariaPage() {
     }
 
     async function handleUpdateHoras() {
+        if (!editingItem) return;
+
         const horas = parseFloat(newHoras);
         if (isNaN(horas) || horas < editingItem.horas_actuales) {
             toast.error('Las horas deben ser mayores al valor actual');

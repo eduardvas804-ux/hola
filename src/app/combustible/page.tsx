@@ -172,7 +172,7 @@ export default function CombustiblePage() {
                     await updateRow('combustible', editingItem.id, dataToSave);
                     await registrarCambio('combustible', 'UPDATE', `${dataToSave.tipo_movimiento}-${dataToSave.codigo_maquina}`, editingItem, dataToSave, usuarioInfo);
                 } else {
-                    const result = await insertRow('combustible', dataToSave);
+                    await insertRow('combustible', dataToSave);
                     await registrarCambio('combustible', 'CREATE', `${dataToSave.tipo_movimiento}-${dataToSave.codigo_maquina}`, null, dataToSave, usuarioInfo);
                 }
                 fetchData();
@@ -223,9 +223,6 @@ export default function CombustiblePage() {
         }));
         exportToExcel(data, 'Combustible_' + new Date().toISOString().split('T')[0], 'Combustible');
     }
-
-    // Códigos únicos para dropdown (excluyendo CISTERNA de las salidas)
-    const codigosUnicos = [...new Set(registros.filter(r => r.tipo_movimiento === 'SALIDA').map(r => r.codigo_maquina))].sort();
 
     const filteredRegistros = registros.filter(r => {
         const matchSearch = r.codigo_maquina.toLowerCase().includes(searchTerm.toLowerCase()) ||

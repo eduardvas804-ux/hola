@@ -2,13 +2,11 @@
 
 import { useState, useRef } from 'react';
 import {
-    Upload,
     FileSpreadsheet,
     CheckCircle,
     AlertCircle,
     Loader2,
-    Database,
-    ArrowRight
+    Database
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { createClient } from '@/lib/supabase';

@@ -26,18 +26,17 @@ export const useSidebar = () => useContext(SidebarContext);
 
 const STORAGE_KEY = 'sidebar-collapsed';
 
+// Función para leer del localStorage de forma segura
+function getInitialCollapsed(): boolean {
+    if (typeof window === 'undefined') return false;
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved === 'true';
+}
+
 export function SidebarProvider({ children }: { children: ReactNode }) {
-    const [collapsed, setCollapsedState] = useState(false);
+    const [collapsed, setCollapsedState] = useState(getInitialCollapsed);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
-
-    // Cargar estado del sidebar desde localStorage
-    useEffect(() => {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved !== null) {
-            setCollapsedState(saved === 'true');
-        }
-    }, []);
 
     // Guardar estado en localStorage
     const setCollapsed = useCallback((value: boolean) => {

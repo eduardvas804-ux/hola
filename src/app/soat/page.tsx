@@ -22,16 +22,16 @@ import { formatDate, calcularAlertaDocumento } from '@/lib/utils';
 import { exportToExcel, formatSoatForExport } from '@/lib/export';
 import { useAuth } from '@/components/auth-provider';
 import { puedeVer, puedeEditar, puedeExportar, puedeCrear, puedeEliminar } from '@/lib/permisos';
-import { Role } from '@/lib/types';
+import { Role, SOAT } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { EQUIPOS_MAESTRO } from '@/lib/equipos-data';
 import { useToast } from '@/components/toast-provider';
 
 export default function SOATPage() {
-    const [soat, setSoat] = useState<any[]>([]);
+    const [soat, setSoat] = useState<SOAT[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
-    const [editingItem, setEditingItem] = useState<any>(null);
+    const [editingItem, setEditingItem] = useState<SOAT | null>(null);
     const [usingDemo, setUsingDemo] = useState(false);
     const [filterCodigo, setFilterCodigo] = useState<string>('');
     const [showCodigoFilter, setShowCodigoFilter] = useState(false);
@@ -68,7 +68,7 @@ export default function SOATPage() {
                 return;
             }
 
-            const data = await fetchTable<any>('soat', '&order=fecha_vencimiento');
+            const data = await fetchTable<SOAT>('soat', '&order=fecha_vencimiento');
             setSoat(data || []);
         } catch (error) {
             console.error('Error:', error);
@@ -83,7 +83,7 @@ export default function SOATPage() {
         setShowModal(true);
     }
 
-    function openEditModal(item: any) {
+    function openEditModal(item: SOAT) {
         setEditingItem(item);
         setFormData({
             codigo: item.codigo || '',
@@ -134,9 +134,10 @@ export default function SOATPage() {
 
             setShowModal(false);
             fetchData();
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error:', error);
-            toast.error(error.message || 'Error al guardar');
+            const errorMessage = error instanceof Error ? error.message : 'Error al guardar';
+            toast.error(errorMessage);
         }
     }
 
@@ -152,7 +153,7 @@ export default function SOATPage() {
 
             setSoat(prev => prev.filter(s => s.id !== id));
             toast.success(`SOAT de ${codigo} eliminado`);
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error:', error);
             toast.error('Error al eliminar');
         }

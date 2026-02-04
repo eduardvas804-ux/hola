@@ -146,8 +146,8 @@ export interface HistorialCambio {
   tabla: string;
   accion: 'INSERT' | 'UPDATE' | 'DELETE';
   registro_id: string;
-  datos_anteriores: any;
-  datos_nuevos: any;
+  datos_anteriores: Record<string, unknown> | null;
+  datos_nuevos: Record<string, unknown> | null;
   usuario_id: string;
   usuario_email: string;
   usuario_nombre: string;

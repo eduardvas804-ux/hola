@@ -90,7 +90,7 @@ export default function CITVPage() {
         setShowModal(true);
     }
 
-    function openEditModal(item: any) {
+    function openEditModal(item: CITV) {
         setEditingItem(item);
         setFormData({
             codigo: item.codigo || '',
@@ -145,9 +145,10 @@ export default function CITVPage() {
 
             setShowModal(false);
             fetchData();
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error:', error);
-            setMensaje({ tipo: 'error', texto: error.message || 'Error al guardar' });
+            const errorMessage = error instanceof Error ? error.message : 'Error al guardar';
+            setMensaje({ tipo: 'error', texto: errorMessage });
         }
     }
 
@@ -167,7 +168,7 @@ export default function CITVPage() {
 
             setCitv(prev => prev.filter(c => c.id !== id));
             setMensaje({ tipo: 'success', texto: `Revisión Técnica de ${codigo} eliminada` });
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error:', error);
             setMensaje({ tipo: 'error', texto: 'Error al eliminar' });
         }
