@@ -8,6 +8,7 @@ import { SidebarProvider } from "@/components/sidebar-context";
 import { ToastProvider } from "@/components/toast-provider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ConfirmDialogProvider } from "@/components/ui/ConfirmDialog";
+import { PWAProvider } from "@/hooks/usePWA";
 import Script from "next/script";
 
 const inter = Inter({
@@ -68,15 +69,17 @@ export default function RootLayout({
       <body className={`${inter.className} ${inter.variable}`}>
         <ThemeProvider>
           <ToastProvider>
-            <AuthProvider>
-              <ConfirmDialogProvider>
-                <SidebarProvider>
-                  <AppShell>
-                    {children}
-                  </AppShell>
-                </SidebarProvider>
-              </ConfirmDialogProvider>
-            </AuthProvider>
+            <PWAProvider>
+              <AuthProvider>
+                <ConfirmDialogProvider>
+                  <SidebarProvider>
+                    <AppShell>
+                      {children}
+                    </AppShell>
+                  </SidebarProvider>
+                </ConfirmDialogProvider>
+              </AuthProvider>
+            </PWAProvider>
           </ToastProvider>
         </ThemeProvider>
 

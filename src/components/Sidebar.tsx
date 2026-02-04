@@ -7,6 +7,7 @@ import { useSidebar } from '@/components/sidebar-context';
 import { useTheme } from '@/components/ThemeProvider';
 import { puedeVer, Seccion } from '@/lib/permisos';
 import { Role } from '@/lib/types';
+import InstallPrompt from '@/components/InstallPrompt';
 import {
     LayoutDashboard,
     Truck,
@@ -29,7 +30,6 @@ import {
     FileText,
     Sun,
     Moon,
-    Download,
 } from 'lucide-react';
 
 const menuItems: { href: string; label: string; icon: any; seccion: Seccion }[] = [
@@ -55,19 +55,6 @@ export default function Sidebar() {
     const handleLinkClick = () => {
         if (isMobile) {
             setMobileOpen(false);
-        }
-    };
-
-    // Install PWA prompt
-    const handleInstallPWA = async () => {
-        if ('BeforeInstallPromptEvent' in window || (window as any).deferredPrompt) {
-            const deferredPrompt = (window as any).deferredPrompt;
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                console.log(`User ${outcome === 'accepted' ? 'accepted' : 'dismissed'} PWA install`);
-                (window as any).deferredPrompt = null;
-            }
         }
     };
 
@@ -212,17 +199,9 @@ export default function Sidebar() {
                             )}
                         </button>
 
+
                         {/* Install PWA Button */}
-                        <button
-                            onClick={handleInstallPWA}
-                            className={`w-full flex items-center gap-3 px-3 py-2 text-white/60 hover:text-white transition-colors rounded-lg hover:bg-white/10 ${collapsed && !isMobile ? 'justify-center' : ''}`}
-                            title="Instalar aplicación"
-                        >
-                            <Download size={18} />
-                            {(!collapsed || isMobile) && (
-                                <span className="text-sm">Instalar App</span>
-                            )}
-                        </button>
+                        {(!collapsed || isMobile) && <InstallPrompt />}
 
                         <div className="flex gap-1">
                             {!isMobile && (
