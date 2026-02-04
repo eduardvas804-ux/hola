@@ -1,31 +1,45 @@
 import { z } from 'zod';
 
+// Tipos de maquinaria como array para reutilizar
+const TIPOS_MAQUINARIA = [
+    'EXCAVADORA',
+    'RETROEXCAVADORA',
+    'CARGADOR FRONTAL',
+    'TRACTOR ORUGA',
+    'MOTONIVELADORA',
+    'RODILLO',
+    'VOLQUETE',
+    'CAMION',
+    'CISTERNA DE AGUA',
+    'CISTERNA DE COMBUSTIBLE',
+    'CAMIONETA'
+] as const;
+
+const ESTADOS_MAQUINARIA = ['OPERATIVO', 'EN MANTENIMIENTO', 'INOPERATIVO', 'ALQUILADO'] as const;
+
+const TIPOS_MANTENIMIENTO = [
+    'PREVENTIVO 250H',
+    'PREVENTIVO 500H',
+    'PREVENTIVO 1000H',
+    'PREVENTIVO 2000H',
+    'PREVENTIVO 4000H',
+    'CORRECTIVO'
+] as const;
+
+const ESTADOS_ALERTA = ['URGENTE', 'PROXIMO', 'EN REGLA', 'VENCIDO'] as const;
+
+const ROLES_USUARIO = ['admin', 'supervisor', 'operador', 'visualizador'] as const;
+
 // Schema para Maquinaria - coincide con el tipo Maquinaria en types.ts
 export const MaquinariaSchema = z.object({
     item: z.number().min(1, 'El número de item es requerido'),
     serie: z.string().min(1, 'La serie es requerida'),
     codigo: z.string().min(1, 'El código es requerido'),
-    tipo: z.enum([
-        'EXCAVADORA',
-        'RETROEXCAVADORA',
-        'CARGADOR FRONTAL',
-        'TRACTOR ORUGA',
-        'MOTONIVELADORA',
-        'RODILLO',
-        'VOLQUETE',
-        'CAMION',
-        'CISTERNA DE AGUA',
-        'CISTERNA DE COMBUSTIBLE',
-        'CAMIONETA'
-    ], {
-        errorMap: () => ({ message: 'Seleccione un tipo válido' }),
-    }),
+    tipo: z.enum(TIPOS_MAQUINARIA, { message: 'Seleccione un tipo válido' }),
     marca: z.string().min(1, 'La marca es requerida'),
     modelo: z.string().min(1, 'El modelo es requerido'),
     año: z.number().min(1980, 'El año debe ser mayor a 1980').max(new Date().getFullYear() + 1, 'Año inválido'),
-    estado: z.enum(['OPERATIVO', 'EN MANTENIMIENTO', 'INOPERATIVO', 'ALQUILADO'], {
-        errorMap: () => ({ message: 'Seleccione un estado válido' }),
-    }),
+    estado: z.enum(ESTADOS_MAQUINARIA, { message: 'Seleccione un estado válido' }),
     operador: z.string().optional(),
     empresa: z.string().optional(),
     tramo: z.string().optional(),
@@ -49,15 +63,8 @@ export const MantenimientoSchema = z.object({
     operador: z.string().optional(),
     tramo: z.string().optional(),
     fecha_programada: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)').optional(),
-    tipo_mantenimiento: z.enum([
-        'PREVENTIVO 250H',
-        'PREVENTIVO 500H',
-        'PREVENTIVO 1000H',
-        'PREVENTIVO 2000H',
-        'PREVENTIVO 4000H',
-        'CORRECTIVO'
-    ]),
-    estado_alerta: z.enum(['URGENTE', 'PROXIMO', 'EN REGLA', 'VENCIDO']),
+    tipo_mantenimiento: z.enum(TIPOS_MANTENIMIENTO),
+    estado_alerta: z.enum(ESTADOS_ALERTA),
 });
 
 // Schema para SOAT - coincide con el tipo SOAT en types.ts
@@ -88,7 +95,7 @@ export const CITVSchema = z.object({
 export const UserProfileSchema = z.object({
     email: z.string().email('Email inválido'),
     nombre_completo: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
-    rol: z.enum(['admin', 'supervisor', 'operador', 'visualizador']),
+    rol: z.enum(ROLES_USUARIO),
     activo: z.boolean().optional(),
 });
 
