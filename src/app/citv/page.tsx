@@ -22,20 +22,20 @@ import { formatDate, calcularAlertaDocumento } from '@/lib/utils';
 import { exportToExcel } from '@/lib/export';
 import { useAuth } from '@/components/auth-provider';
 import { puedeVer, puedeEditar, puedeExportar, puedeCrear, puedeEliminar } from '@/lib/permisos';
-import { Role } from '@/lib/types';
+import { Role, CITV } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { EQUIPOS_MAESTRO } from '@/lib/equipos-data';
 
 export default function CITVPage() {
-    const [citv, setCitv] = useState<any[]>([]);
+    const [citv, setCitv] = useState<CITV[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
-    const [editingItem, setEditingItem] = useState<any>(null);
+    const [editingItem, setEditingItem] = useState<CITV | null>(null);
     const [filterCodigo, setFilterCodigo] = useState<string>('');
     const [showCodigoFilter, setShowCodigoFilter] = useState(false);
     const [searchCodigo, setSearchCodigo] = useState('');
     const [mensaje, setMensaje] = useState<{ tipo: 'success' | 'error'; texto: string } | null>(null);
-    const { profile, user } = useAuth();
+    const { profile } = useAuth();
     const router = useRouter();
     const userRole = profile?.rol as Role;
 

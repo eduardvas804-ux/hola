@@ -209,3 +209,138 @@ export async function buscarMaquinaria(termino: string): Promise<any[]> {
         return [];
     }
 }
+
+// Verificar si Supabase está configurado (exportado para uso en componentes)
+export { isConfigured };
+
+// Resultado con metadatos de operación
+export interface ApiResult<T> {
+    data: T | null;
+    success: boolean;
+    error?: string;
+}
+
+// Insert con resultado estructurado
+export async function insertRowWithResult<T>(table: string, data: Partial<T>): Promise<ApiResult<T>> {
+    if (!isConfigured()) {
+        return { data: null, success: false, error: 'Supabase no configurado' };
+    }
+
+    try {
+        const response = await fetch(`${SUPABASE_URL}/${table}`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ insertRow(${table}) error:`, errorText);
+            return { data: null, success: false, error: errorText };
+        }
+
+        const result = await response.json();
+        return { data: result[0] || null, success: true };
+    } catch (error: any) {
+        console.error(`❌ insertRow(${table}) exception:`, error);
+        return { data: null, success: false, error: error.message };
+    }
+}
+
+// Update con resultado estructurado
+export async function updateRowWithResult<T>(table: string, id: string, data: Partial<T>): Promise<ApiResult<T>> {
+    if (!isConfigured()) {
+        return { data: null, success: false, error: 'Supabase no configurado' };
+    }
+
+    try {
+        const response = await fetch(`${SUPABASE_URL}/${table}?id=eq.${id}`, {
+            method: 'PATCH',
+            headers: getHeaders(),
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ updateRow(${table}) error:`, errorText);
+            return { data: null, success: false, error: errorText };
+        }
+
+        const result = await response.json();
+        return { data: result[0] || null, success: true };
+    } catch (error: any) {
+        console.error(`❌ updateRow(${table}) exception:`, error);
+        return { data: null, success: false, error: error.message };
+    }
+}
+
+// Delete con resultado estructurado
+export async function deleteRowWithResult(table: string, id: string): Promise<ApiResult<null>> {
+    if (!isConfigured()) {
+        return { data: null, success: false, error: 'Supabase no configurado' };
+    }
+
+    try {
+        const response = await fetch(`${SUPABASE_URL}/${table}?id=eq.${id}`, {
+            method: 'DELETE',
+            headers: getHeaders()
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ deleteRow(${table}) error:`, errorText);
+            return { data: null, success: false, error: errorText };
+        }
+
+        return { data: null, success: true };
+    } catch (error: any) {
+        console.error(`❌ deleteRow(${table}) exception:`, error);
+        return { data: null, success: false, error: error.message };
+    }
+}
+
+// Obtener equipos vinculados por código o serie
+export async function getEquiposVinculados(identificador: string): Promise<{
+    maquinaria: any | null;
+    mantenimiento: any | null;
+    soat: any | null;
+    citv: any | null;
+    filtros: any | null;
+}> {
+    if (!isConfigured()) {
+        return { maquinaria: null, mantenimiento: null, soat: null, citv: null, filtros: null };
+    }
+
+    try {
+        // Buscar primero en maquinaria por código o serie
+        const maquinarias = await fetchTable<any>('maquinaria');
+        const maquinaria = maquinarias.find(m =>
+            m.codigo === identificador || m.serie === identificador
+        );
+
+        if (!maquinaria) {
+            return { maquinaria: null, mantenimiento: null, soat: null, citv: null, filtros: null };
+        }
+
+        const codigo = maquinaria.codigo;
+
+        // Obtener datos relacionados en paralelo
+        const [mantenimientos, soats, citvs, filtrosArr] = await Promise.all([
+            fetchTable<any>('mantenimientos', `&codigo_maquina=eq.${codigo}`),
+            fetchTable<any>('soat', `&codigo=eq.${codigo}`),
+            fetchTable<any>('citv', `&codigo=eq.${codigo}`),
+            fetchTable<any>('filtros', `&maquinaria_codigo=eq.${codigo}`)
+        ]);
+
+        return {
+            maquinaria,
+            mantenimiento: mantenimientos[0] || null,
+            soat: soats[0] || null,
+            citv: citvs[0] || null,
+            filtros: filtrosArr[0] || null
+        };
+    } catch (error) {
+        console.error('Error obteniendo equipos vinculados:', error);
+        return { maquinaria: null, mantenimiento: null, soat: null, citv: null, filtros: null };
+    }
+}

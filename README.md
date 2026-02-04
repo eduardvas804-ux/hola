@@ -1,36 +1,119 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MAQUINARIA PRO - Sistema de Control de Maquinaria Pesada
 
-## Getting Started
+Sistema integral de gestión, control y documentación de flota de maquinaria pesada para el Grupo Vásquez.
 
-First, run the development server:
+## Características Principales
 
+- **Dashboard Interactivo**: Estadísticas en tiempo real, gráficos y alertas críticas
+- **Gestión de Maquinaria**: CRUD completo con búsqueda avanzada y exportación a Excel
+- **Control de Mantenimientos**: Seguimiento preventivo (250H, 500H, 1000H) y correctivo
+- **Documentos Técnicos**: Control de SOAT y revisiones CITV con alertas de vencimiento
+- **Control de Combustible**: Registro de entradas y salidas de combustible
+- **Valorizaciones**: Gestión de valorizaciones de activos
+- **Reportes PDF**: Generación de reportes exportables
+- **Sistema de Alertas**: Notificaciones por email con Resend
+- **Auditoría**: Historial completo de cambios con registro de usuario
+- **Gestión de Usuarios**: Sistema RBAC con 4 roles (admin, supervisor, operador, visualizador)
+
+## Stack Tecnológico
+
+- **Frontend**: Next.js 16, React 19, TypeScript
+- **Estilos**: Tailwind CSS 4
+- **Base de Datos**: Supabase (PostgreSQL)
+- **Autenticación**: Supabase Auth
+- **Gráficos**: Chart.js con react-chartjs-2
+- **Iconos**: Lucide React
+- **Excel I/O**: XLSX
+- **Email**: Resend API
+- **Despliegue**: Vercel
+
+## Requisitos Previos
+
+- Node.js 18+
+- Cuenta en Supabase
+- (Opcional) Cuenta en Resend para alertas por email
+
+## Instalación
+
+1. Clonar el repositorio:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/tu-usuario/maquinaria-pro.git
+cd maquinaria-pro
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Instalar dependencias:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Configurar variables de entorno:
+```bash
+cp .env.example .env.local
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Editar `.env.local` con tus credenciales:
+```env
+NEXT_PUBLIC_SUPABASE_URL=tu_url_de_supabase
+NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_anon_key
+SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
+RESEND_API_KEY=tu_resend_api_key
+```
 
-## Learn More
+4. Ejecutar en desarrollo:
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+5. Abrir [http://localhost:3000](http://localhost:3000)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Scripts Disponibles
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run dev      # Servidor de desarrollo
+npm run build    # Build de producción
+npm run start    # Iniciar servidor de producción
+npm run lint     # Ejecutar linter
+```
 
-## Deploy on Vercel
+## Estructura del Proyecto
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+src/
+├── app/                    # Rutas y páginas (App Router)
+│   ├── api/               # API Routes
+│   ├── admin/             # Páginas de administración
+│   ├── maquinaria/        # Gestión de maquinaria
+│   ├── mantenimientos/    # Control de mantenimientos
+│   ├── soat/              # Control de SOAT
+│   ├── citv/              # Revisiones técnicas
+│   └── ...
+├── components/            # Componentes React reutilizables
+│   ├── auth-provider.tsx  # Context de autenticación
+│   ├── app-shell.tsx      # Layout principal
+│   ├── toast-provider.tsx # Sistema de notificaciones
+│   └── ...
+└── lib/                   # Utilidades y configuración
+    ├── api.ts             # Funciones HTTP
+    ├── supabase.ts        # Cliente de Supabase
+    ├── permisos.ts        # Sistema RBAC
+    └── types.ts           # Tipos TypeScript
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Roles y Permisos
+
+| Rol | Descripción |
+|-----|-------------|
+| **Admin** | Acceso total, gestión de usuarios |
+| **Supervisor** | Lectura y edición en mayoría de secciones |
+| **Operador** | Lectura de datos y edición limitada |
+| **Visualizador** | Solo lectura de reportes |
+
+## Despliegue en Vercel
+
+1. Conectar repositorio con Vercel
+2. Configurar variables de entorno
+3. Desplegar
+
+## Licencia
+
+Proyecto privado - Grupo Vásquez © 2026

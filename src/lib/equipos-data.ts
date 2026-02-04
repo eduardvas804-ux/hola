@@ -1,9 +1,14 @@
 // Datos maestros de equipos - Código, Tipo, Modelo y Serie vinculados
+// Este archivo contiene la información base de todos los equipos del sistema
+// La vinculación se realiza principalmente por el campo 'codigo'
+
 export interface Equipo {
     codigo: string;
     tipo: string;
     modelo: string;
     serie: string;
+    marca?: string;
+    empresa?: string;
 }
 
 export const EQUIPOS_MAESTRO: Equipo[] = [
@@ -125,4 +130,50 @@ export function formatearEquipo(serie: string): string {
 // Función para mostrar formato completo para dropdowns
 export function formatearEquipoCompleto(equipo: Equipo): string {
     return `${equipo.codigo} - ${equipo.tipo} ${equipo.modelo} (${equipo.serie})`;
+}
+
+// Validar si un código existe en los equipos maestros
+export function existeEnMaestro(codigo: string): boolean {
+    return EQUIPOS_MAESTRO.some(e => e.codigo === codigo);
+}
+
+// Obtener lista de tipos únicos
+export function getTiposUnicos(): string[] {
+    return [...new Set(EQUIPOS_MAESTRO.map(e => e.tipo))].sort();
+}
+
+// Obtener equipos por tipo
+export function getEquiposPorTipo(tipo: string): Equipo[] {
+    return EQUIPOS_MAESTRO.filter(e => e.tipo === tipo);
+}
+
+// Buscar equipo por cualquier campo (código, serie, modelo)
+export function buscarEquipoPorIdentificador(identificador: string): Equipo | undefined {
+    const term = identificador.toLowerCase();
+    return EQUIPOS_MAESTRO.find(e =>
+        e.codigo.toLowerCase() === term ||
+        e.serie.toLowerCase() === term
+    );
+}
+
+// Normalizar código (convertir a mayúsculas y eliminar espacios)
+export function normalizarCodigo(codigo: string): string {
+    return codigo.trim().toUpperCase();
+}
+
+// Obtener información para vincular con otras tablas
+export function getInfoVinculacion(codigo: string): {
+    codigo: string;
+    serie: string;
+    tipo: string;
+    modelo: string;
+} | null {
+    const equipo = EQUIPOS_MAESTRO.find(e => e.codigo === codigo);
+    if (!equipo) return null;
+    return {
+        codigo: equipo.codigo,
+        serie: equipo.serie,
+        tipo: equipo.tipo,
+        modelo: equipo.modelo
+    };
 }

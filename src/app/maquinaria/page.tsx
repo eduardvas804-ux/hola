@@ -22,6 +22,8 @@ import { formatNumber } from '@/lib/utils';
 import { exportToExcel, formatMaquinariaForExport } from '@/lib/export';
 import { useAuth } from '@/components/auth-provider';
 import { getSeriePorCodigo, getCodigoConSerie, getCodigoPorSerie, getEquipoPorSerie, EQUIPOS_MAESTRO } from '@/lib/equipos-data';
+import { useToast } from '@/components/toast-provider';
+import EquipoInfoCard from '@/components/equipo-info-card';
 
 const TIPOS: TipoMaquinaria[] = [
     'EXCAVADORA', 'MOTONIVELADORA', 'CARGADOR FRONTAL', 'RETROEXCAVADORA',
@@ -51,7 +53,9 @@ export default function MaquinariaPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCodigo, setFilterCodigo] = useState('');
     const { profile, user } = useAuth();
+    const toast = useToast();
     const [showCodigoFilter, setShowCodigoFilter] = useState(false);
+    const [showEquipoInfo, setShowEquipoInfo] = useState<string | null>(null);
     const [searchCodigo, setSearchCodigo] = useState('');
     const [filterTipo, setFilterTipo] = useState('');
     const [filterEstado, setFilterEstado] = useState('');
@@ -168,9 +172,11 @@ export default function MaquinariaPage() {
             // Demo mode - update local state
             if (editingItem) {
                 setMaquinaria(prev => prev.map(m => m.id === editingItem.id ? { ...formData, id: editingItem.id, updated_at: new Date().toISOString() } : m));
+                toast.success('Equipo actualizado (modo demo)');
             } else {
                 const newItem = { ...formData, id: Date.now().toString(), updated_at: new Date().toISOString() };
                 setMaquinaria(prev => [...prev, newItem]);
+                toast.success('Equipo agregado (modo demo)');
             }
             setShowModal(false);
             return;
@@ -183,22 +189,25 @@ export default function MaquinariaPage() {
                 await updateRow('maquinaria', editingItem.id, formData);
                 // Registrar cambio en historial
                 await registrarCambio('maquinaria', 'UPDATE', formData.codigo || editingItem.id, editingItem, formData, usuarioInfo);
+                toast.success('Equipo actualizado correctamente');
             } else {
                 await insertRow('maquinaria', formData);
                 // Registrar creación en historial
                 await registrarCambio('maquinaria', 'CREATE', formData.codigo || '', null, formData, usuarioInfo);
+                toast.success('Equipo agregado correctamente');
             }
             fetchData();
             setShowModal(false);
         } catch (error) {
             console.error('Error saving:', error);
+            toast.error('Error al guardar el equipo');
         }
     }
 
     async function handleUpdateHoras() {
         const horas = parseFloat(newHoras);
         if (isNaN(horas) || horas < editingItem.horas_actuales) {
-            alert('Las horas deben ser mayores al valor actual');
+            toast.error('Las horas deben ser mayores al valor actual');
             return;
         }
 
@@ -533,14 +542,18 @@ export default function MaquinariaPage() {
                                     </td>
                                     <td className="text-gray-500">{m.item}</td>
                                     <td>
-                                        <div className="flex flex-col">
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800 text-white font-bold text-sm w-fit">
+                                        <button
+                                            onClick={() => setShowEquipoInfo(m.codigo)}
+                                            className="flex flex-col text-left hover:opacity-80 transition-opacity"
+                                            title="Ver información vinculada"
+                                        >
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800 text-white font-bold text-sm w-fit cursor-pointer hover:bg-slate-700">
                                                 {getCodigoPorSerie(m.codigo) || m.codigo}
                                             </span>
                                             <span className="text-xs text-gray-400 mt-0.5 pl-1">
                                                 {m.codigo}
                                             </span>
-                                        </div>
+                                        </button>
                                     </td>
                                     <td>
                                         <span className="flex items-center gap-2">
@@ -801,6 +814,18 @@ export default function MaquinariaPage() {
                                 Actualizar
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Info Equipo Vinculado */}
+            {showEquipoInfo && (
+                <div className="modal-overlay" onClick={() => setShowEquipoInfo(null)}>
+                    <div className="modal-content max-w-2xl" onClick={e => e.stopPropagation()}>
+                        <EquipoInfoCard
+                            codigo={showEquipoInfo}
+                            onClose={() => setShowEquipoInfo(null)}
+                        />
                     </div>
                 </div>
             )}

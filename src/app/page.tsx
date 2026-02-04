@@ -22,8 +22,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import { createClient } from '@/lib/supabase';
-import { Maquinaria, Mantenimiento, SOAT, CITV, ICONOS_MAQUINARIA, TipoMaquinaria } from '@/lib/types';
+import { ICONOS_MAQUINARIA, TipoMaquinaria } from '@/lib/types';
 import { formatNumber, formatDate, calcularAlertaDocumento } from '@/lib/utils';
 
 ChartJS.register(

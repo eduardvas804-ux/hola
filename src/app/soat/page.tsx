@@ -17,14 +17,15 @@ import {
     Trash2,
     RefreshCw
 } from 'lucide-react';
-import { createClient } from '@/lib/supabase';
+import { fetchTable, insertRowWithResult, updateRowWithResult, deleteRowWithResult, isConfigured } from '@/lib/api';
 import { formatDate, calcularAlertaDocumento } from '@/lib/utils';
 import { exportToExcel, formatSoatForExport } from '@/lib/export';
 import { useAuth } from '@/components/auth-provider';
 import { puedeVer, puedeEditar, puedeExportar, puedeCrear, puedeEliminar } from '@/lib/permisos';
 import { Role } from '@/lib/types';
 import { useRouter } from 'next/navigation';
-import { EQUIPOS_MAESTRO, getCodigoPorSerie } from '@/lib/equipos-data';
+import { EQUIPOS_MAESTRO } from '@/lib/equipos-data';
+import { useToast } from '@/components/toast-provider';
 
 export default function SOATPage() {
     const [soat, setSoat] = useState<any[]>([]);
@@ -35,7 +36,6 @@ export default function SOATPage() {
     const [filterCodigo, setFilterCodigo] = useState<string>('');
     const [showCodigoFilter, setShowCodigoFilter] = useState(false);
     const [searchCodigo, setSearchCodigo] = useState('');
-    const [mensaje, setMensaje] = useState<{ tipo: 'success' | 'error'; texto: string } | null>(null);
     const { profile, user } = useAuth();
     const router = useRouter();
     const userRole = profile?.rol as Role;
@@ -50,6 +50,7 @@ export default function SOATPage() {
     };
 
     const [formData, setFormData] = useState(emptyForm);
+    const toast = useToast();
 
     useEffect(() => {
         if (profile && !puedeVer(userRole, 'soat')) {
@@ -62,22 +63,13 @@ export default function SOATPage() {
     async function fetchData() {
         setLoading(true);
         try {
-            const supabase = createClient();
-            if (!supabase) {
+            if (!isConfigured()) {
                 setLoading(false);
                 return;
             }
 
-            const { data, error } = await supabase
-                .from('soat')
-                .select('*')
-                .order('fecha_vencimiento');
-
-            if (error) {
-                console.error('Error:', error);
-            } else {
-                setSoat(data || []);
-            }
+            const data = await fetchTable<any>('soat', '&order=fecha_vencimiento');
+            setSoat(data || []);
         } catch (error) {
             console.error('Error:', error);
         } finally {
@@ -119,36 +111,32 @@ export default function SOATPage() {
 
     async function handleSave() {
         if (!formData.codigo || !formData.fecha_vencimiento) {
-            setMensaje({ tipo: 'error', texto: 'Complete código y fecha de vencimiento' });
+            toast.error('Complete código y fecha de vencimiento');
             return;
         }
 
         try {
-            const supabase = createClient();
-            if (!supabase) return;
-
             if (editingItem) {
-                const { error } = await supabase
-                    .from('soat')
-                    .update(formData)
-                    .eq('id', editingItem.id);
-
-                if (error) throw error;
-                setMensaje({ tipo: 'success', texto: 'SOAT actualizado correctamente' });
+                const result = await updateRowWithResult('soat', editingItem.id, formData);
+                if (!result.success) {
+                    toast.error(result.error || 'Error al actualizar');
+                    return;
+                }
+                toast.success('SOAT actualizado correctamente');
             } else {
-                const { error } = await supabase
-                    .from('soat')
-                    .insert([formData]);
-
-                if (error) throw error;
-                setMensaje({ tipo: 'success', texto: 'SOAT agregado correctamente' });
+                const result = await insertRowWithResult('soat', formData);
+                if (!result.success) {
+                    toast.error(result.error || 'Error al agregar');
+                    return;
+                }
+                toast.success('SOAT agregado correctamente');
             }
 
             setShowModal(false);
             fetchData();
         } catch (error: any) {
             console.error('Error:', error);
-            setMensaje({ tipo: 'error', texto: error.message || 'Error al guardar' });
+            toast.error(error.message || 'Error al guardar');
         }
     }
 
@@ -156,21 +144,17 @@ export default function SOATPage() {
         if (!confirm(`¿Eliminar SOAT de ${codigo}?`)) return;
 
         try {
-            const supabase = createClient();
-            if (!supabase) return;
-
-            const { error } = await supabase
-                .from('soat')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
+            const result = await deleteRowWithResult('soat', id);
+            if (!result.success) {
+                toast.error(result.error || 'Error al eliminar');
+                return;
+            }
 
             setSoat(prev => prev.filter(s => s.id !== id));
-            setMensaje({ tipo: 'success', texto: `SOAT de ${codigo} eliminado` });
+            toast.success(`SOAT de ${codigo} eliminado`);
         } catch (error: any) {
             console.error('Error:', error);
-            setMensaje({ tipo: 'error', texto: 'Error al eliminar' });
+            toast.error('Error al eliminar');
         }
     }
 
@@ -234,17 +218,6 @@ export default function SOATPage() {
                     )}
                 </div>
             </div>
-
-            {/* Mensaje */}
-            {mensaje && (
-                <div className={`p-4 rounded-lg flex items-center gap-2 ${
-                    mensaje.tipo === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
-                }`}>
-                    {mensaje.tipo === 'success' ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
-                    {mensaje.texto}
-                    <button onClick={() => setMensaje(null)} className="ml-auto"><X size={18} /></button>
-                </div>
-            )}
 
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

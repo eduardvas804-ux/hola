@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase';
 
 interface TestResult {
@@ -11,16 +11,17 @@ interface TestResult {
     delete: string;
 }
 
+interface EnvVars {
+    url: string;
+    key: string;
+}
+
 export default function DiagnosticoPage() {
     const [results, setResults] = useState<TestResult[]>([]);
     const [loading, setLoading] = useState(true);
-    const [envVars, setEnvVars] = useState<any>({});
+    const [envVars, setEnvVars] = useState<EnvVars>({ url: '', key: '' });
 
-    useEffect(() => {
-        runDiagnostics();
-    }, []);
-
-    async function runDiagnostics() {
+    const runDiagnostics = useCallback(async () => {
         setLoading(true);
 
         // Check env vars
@@ -113,7 +114,11 @@ export default function DiagnosticoPage() {
 
         setResults(testResults);
         setLoading(false);
-    }
+    }, []);
+
+    useEffect(() => {
+        runDiagnostics();
+    }, [runDiagnostics]);
 
     return (
         <div className="p-8 max-w-4xl mx-auto">

@@ -3,13 +3,10 @@
 import { useState, useEffect } from 'react';
 import {
     Fuel,
-    Plus,
     Search,
     Download,
     TrendingUp,
     TrendingDown,
-    Calendar,
-    Truck,
     DollarSign,
     Save,
     X,
@@ -27,7 +24,7 @@ import { exportToExcel } from '@/lib/export';
 import { useAuth } from '@/components/auth-provider';
 import { puedeVer, puedeCrear, puedeEditar, puedeEliminar, puedeExportar } from '@/lib/permisos';
 import { useRouter } from 'next/navigation';
-import { getSeriePorCodigo, getCodigoConSerie, getCodigoPorSerie, EQUIPOS_MAESTRO, formatearEquipo } from '@/lib/equipos-data';
+import { getCodigoConSerie, EQUIPOS_MAESTRO } from '@/lib/equipos-data';
 
 type TipoMovimiento = 'ENTRADA' | 'SALIDA';
 

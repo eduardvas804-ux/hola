@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 
 interface SidebarContextType {
     collapsed: boolean;
@@ -24,10 +24,26 @@ const SidebarContext = createContext<SidebarContextType>({
 
 export const useSidebar = () => useContext(SidebarContext);
 
+const STORAGE_KEY = 'sidebar-collapsed';
+
 export function SidebarProvider({ children }: { children: ReactNode }) {
-    const [collapsed, setCollapsed] = useState(false);
+    const [collapsed, setCollapsedState] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+
+    // Cargar estado del sidebar desde localStorage
+    useEffect(() => {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved !== null) {
+            setCollapsedState(saved === 'true');
+        }
+    }, []);
+
+    // Guardar estado en localStorage
+    const setCollapsed = useCallback((value: boolean) => {
+        setCollapsedState(value);
+        localStorage.setItem(STORAGE_KEY, String(value));
+    }, []);
 
     useEffect(() => {
         const checkMobile = () => {
@@ -42,7 +58,10 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    const toggleCollapsed = () => setCollapsed(prev => !prev);
+    const toggleCollapsed = useCallback(() => {
+        setCollapsed(!collapsed);
+    }, [collapsed, setCollapsed]);
+
     const toggleMobile = () => setMobileOpen(prev => !prev);
 
     return (
