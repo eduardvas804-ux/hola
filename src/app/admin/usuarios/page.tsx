@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
+import { useAuth } from '@/components/auth-provider';
 import { UserProfile, Role } from '@/lib/types';
 import {
     UserPlus,
@@ -60,6 +61,7 @@ export default function UsuariosPage() {
     const [filterRol, setFilterRol] = useState<Role | ''>('');
     const [showModal, setShowModal] = useState(false);
     const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+    const { loading: authLoading } = useAuth();
 
     const [formData, setFormData] = useState({
         email: '',
@@ -69,8 +71,9 @@ export default function UsuariosPage() {
     });
 
     useEffect(() => {
+        if (authLoading) return;
         fetchUsers();
-    }, []);
+    }, [authLoading]);
 
     async function fetchUsers() {
         try {

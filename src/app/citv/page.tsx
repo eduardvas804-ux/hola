@@ -35,7 +35,7 @@ export default function CITVPage() {
     const [showCodigoFilter, setShowCodigoFilter] = useState(false);
     const [searchCodigo, setSearchCodigo] = useState('');
     const [mensaje, setMensaje] = useState<{ tipo: 'success' | 'error'; texto: string } | null>(null);
-    const { profile } = useAuth();
+    const { profile, loading: authLoading } = useAuth();
     const router = useRouter();
     const userRole = profile?.rol as Role;
 
@@ -51,12 +51,15 @@ export default function CITVPage() {
     const [formData, setFormData] = useState(emptyForm);
 
     useEffect(() => {
+        // Wait for auth to finish loading before checking permissions or fetching
+        if (authLoading) return;
+
         if (profile && !puedeVer(userRole, 'citv')) {
             router.push('/');
             return;
         }
         fetchData();
-    }, [profile, userRole, router]);
+    }, [authLoading, profile, userRole, router]);
 
     async function fetchData() {
         setLoading(true);
@@ -245,9 +248,8 @@ export default function CITVPage() {
 
             {/* Mensaje */}
             {mensaje && (
-                <div className={`p-4 rounded-lg flex items-center gap-2 ${
-                    mensaje.tipo === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
-                }`}>
+                <div className={`p-4 rounded-lg flex items-center gap-2 ${mensaje.tipo === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
+                    }`}>
                     {mensaje.tipo === 'success' ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
                     {mensaje.texto}
                     <button onClick={() => setMensaje(null)} className="ml-auto"><X size={18} /></button>
@@ -344,8 +346,8 @@ export default function CITVPage() {
                                             .filter(eq => {
                                                 const term = searchCodigo.toLowerCase();
                                                 return eq.codigo.toLowerCase().includes(term) ||
-                                                       eq.serie.toLowerCase().includes(term) ||
-                                                       eq.modelo.toLowerCase().includes(term);
+                                                    eq.serie.toLowerCase().includes(term) ||
+                                                    eq.modelo.toLowerCase().includes(term);
                                             })
                                             .map(eq => (
                                                 <button
@@ -405,16 +407,15 @@ export default function CITVPage() {
                                         <td>{c.placa_serie}</td>
                                         <td>{formatDate(c.fecha_vencimiento)}</td>
                                         <td>
-                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                                c.dias_restantes < 0 ? 'bg-red-100 text-red-800' :
-                                                c.dias_restantes <= 7 ? 'bg-orange-100 text-orange-800' :
-                                                c.dias_restantes <= 30 ? 'bg-amber-100 text-amber-800' :
-                                                'bg-green-100 text-green-800'
-                                            }`}>
+                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${c.dias_restantes < 0 ? 'bg-red-100 text-red-800' :
+                                                    c.dias_restantes <= 7 ? 'bg-orange-100 text-orange-800' :
+                                                        c.dias_restantes <= 30 ? 'bg-amber-100 text-amber-800' :
+                                                            'bg-green-100 text-green-800'
+                                                }`}>
                                                 {c.dias_restantes < 0 ? 'VENCIDO' :
-                                                 c.dias_restantes <= 7 ? `${c.dias_restantes}d - URGENTE` :
-                                                 c.dias_restantes <= 30 ? `${c.dias_restantes}d - PRÓXIMO` :
-                                                 `${c.dias_restantes}d`}
+                                                    c.dias_restantes <= 7 ? `${c.dias_restantes}d - URGENTE` :
+                                                        c.dias_restantes <= 30 ? `${c.dias_restantes}d - PRÓXIMO` :
+                                                            `${c.dias_restantes}d`}
                                             </span>
                                         </td>
                                         <td>

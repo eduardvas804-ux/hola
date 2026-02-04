@@ -90,11 +90,12 @@ export default function HistorialPage() {
     const [filterAccion, setFilterAccion] = useState('Todas');
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [usingDemo, setUsingDemo] = useState(true);
-    const { isAdmin } = useAuth();
+    const { isAdmin, loading: authLoading } = useAuth();
 
     useEffect(() => {
+        if (authLoading) return;
         fetchHistorial();
-    }, []);
+    }, [authLoading]);
 
     async function fetchHistorial() {
         setLoading(true);

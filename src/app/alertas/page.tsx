@@ -18,6 +18,7 @@ import {
     RefreshCw
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
+import { useAuth } from '@/components/auth-provider';
 
 interface Alerta {
     id: string;
@@ -37,6 +38,7 @@ export default function AlertasPage() {
     const [emails, setEmails] = useState<string[]>(['']);
     const [showConfig, setShowConfig] = useState(false);
     const [mensaje, setMensaje] = useState<{ tipo: 'success' | 'error'; texto: string } | null>(null);
+    const { loading: authLoading } = useAuth();
 
     const [stats, setStats] = useState({
         mantenimientos: 0,
@@ -46,8 +48,9 @@ export default function AlertasPage() {
     });
 
     useEffect(() => {
+        if (authLoading) return;
         cargarAlertas();
-    }, []);
+    }, [authLoading]);
 
     function calcularDiasRestantes(fechaVencimiento: string): number {
         if (!fechaVencimiento) return 999;
@@ -369,11 +372,10 @@ export default function AlertasPage() {
 
             {/* Mensaje */}
             {mensaje && (
-                <div className={`p-4 rounded-lg flex items-center gap-2 ${
-                    mensaje.tipo === 'success'
-                        ? 'bg-green-50 text-green-800 border border-green-200'
-                        : 'bg-red-50 text-red-800 border border-red-200'
-                }`}>
+                <div className={`p-4 rounded-lg flex items-center gap-2 ${mensaje.tipo === 'success'
+                    ? 'bg-green-50 text-green-800 border border-green-200'
+                    : 'bg-red-50 text-red-800 border border-red-200'
+                    }`}>
                     {mensaje.tipo === 'success' ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
                     {mensaje.texto}
                     <button onClick={() => setMensaje(null)} className="ml-auto">
@@ -524,21 +526,19 @@ export default function AlertasPage() {
                                 key={`${alerta.tipo}-${alerta.id}`}
                                 className={`p-4 flex items-center gap-4 border-l-4 ${getColorByUrgencia(alerta.urgencia)}`}
                             >
-                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                                    alerta.urgencia === 'alta' ? 'bg-red-100 text-red-600' :
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${alerta.urgencia === 'alta' ? 'bg-red-100 text-red-600' :
                                     alerta.urgencia === 'media' ? 'bg-amber-100 text-amber-600' :
-                                    'bg-blue-100 text-blue-600'
-                                }`}>
+                                        'bg-blue-100 text-blue-600'
+                                    }`}>
                                     {getIconByTipo(alerta.tipo)}
                                 </div>
                                 <div className="flex-1">
                                     <div className="flex items-center gap-2">
                                         <span className="font-bold text-gray-800">{alerta.codigo}</span>
-                                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                            alerta.estado === 'VENCIDO' ? 'bg-red-100 text-red-800' :
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${alerta.estado === 'VENCIDO' ? 'bg-red-100 text-red-800' :
                                             alerta.estado === 'URGENTE' ? 'bg-amber-100 text-amber-800' :
-                                            'bg-blue-100 text-blue-800'
-                                        }`}>
+                                                'bg-blue-100 text-blue-800'
+                                            }`}>
                                             {alerta.estado}
                                         </span>
                                     </div>
@@ -550,11 +550,10 @@ export default function AlertasPage() {
                                     )}
                                 </div>
                                 <div className="text-right">
-                                    <p className={`font-bold ${
-                                        alerta.urgencia === 'alta' ? 'text-red-600' :
+                                    <p className={`font-bold ${alerta.urgencia === 'alta' ? 'text-red-600' :
                                         alerta.urgencia === 'media' ? 'text-amber-600' :
-                                        'text-blue-600'
-                                    }`}>
+                                            'text-blue-600'
+                                        }`}>
                                         {alerta.valor}
                                     </p>
                                     <p className="text-xs text-gray-400 capitalize">{alerta.tipo}</p>
