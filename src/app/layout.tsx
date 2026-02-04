@@ -77,12 +77,21 @@ export default function RootLayout({
           </ToastProvider>
         </ThemeProvider>
 
-        {/* Service Worker Registration */}
+        {/* Service Worker Registration & PWA Install Prompt */}
         <Script
           id="sw-register"
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `
+              // Capture PWA install prompt
+              window.deferredPrompt = null;
+              window.addEventListener('beforeinstallprompt', function(e) {
+                e.preventDefault();
+                window.deferredPrompt = e;
+                console.log('[PWA] Install prompt captured');
+              });
+
+              // Service Worker Registration
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js')
