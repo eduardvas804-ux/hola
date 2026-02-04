@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
+import GlobalSearch from '@/components/GlobalSearch';
 import { useAuth } from '@/components/auth-provider';
 import { useSidebar } from '@/components/sidebar-context';
 import { Loader2, Menu } from 'lucide-react';
@@ -33,19 +34,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
             {/* Header móvil */}
             {isMobile && (
-                <header className="fixed top-0 left-0 right-0 h-16 bg-gradient-to-r from-[#1E3A5F] to-[#152a43] z-30 flex items-center px-4 shadow-lg">
-                    <button
-                        onClick={toggleMobile}
-                        className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
-                    >
-                        <Menu size={24} />
-                    </button>
-                    <div className="ml-3 flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold shadow">
-                            M
+                <header className="fixed top-0 left-0 right-0 h-16 bg-gradient-to-r from-[#1E3A5F] to-[#152a43] z-30 flex items-center justify-between px-4 shadow-lg">
+                    <div className="flex items-center">
+                        <button
+                            onClick={toggleMobile}
+                            className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+                        >
+                            <Menu size={24} />
+                        </button>
+                        <div className="ml-3 flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold shadow">
+                                M
+                            </div>
+                            <span className="text-white font-semibold">MAQUINARIA PRO</span>
                         </div>
-                        <span className="text-white font-semibold">MAQUINARIA PRO</span>
                     </div>
+                    <GlobalSearch />
                 </header>
             )}
 

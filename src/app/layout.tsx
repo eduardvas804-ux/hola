@@ -7,6 +7,7 @@ import AppShell from "@/components/app-shell";
 import { SidebarProvider } from "@/components/sidebar-context";
 import { ToastProvider } from "@/components/toast-provider";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { ConfirmDialogProvider } from "@/components/ui/ConfirmDialog";
 import Script from "next/script";
 
 const inter = Inter({
@@ -68,11 +69,13 @@ export default function RootLayout({
         <ThemeProvider>
           <ToastProvider>
             <AuthProvider>
-              <SidebarProvider>
-                <AppShell>
-                  {children}
-                </AppShell>
-              </SidebarProvider>
+              <ConfirmDialogProvider>
+                <SidebarProvider>
+                  <AppShell>
+                    {children}
+                  </AppShell>
+                </SidebarProvider>
+              </ConfirmDialogProvider>
             </AuthProvider>
           </ToastProvider>
         </ThemeProvider>
