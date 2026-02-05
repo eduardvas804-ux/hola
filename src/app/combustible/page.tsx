@@ -18,7 +18,8 @@ import {
     ArrowUpCircle,
     Building2,
     Gauge,
-    BarChart3
+    BarChart3,
+    Car
 } from 'lucide-react';
 import { fetchTableWithStatus, insertRow, updateRow, deleteRow, registrarCambio } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
@@ -89,6 +90,7 @@ export default function CombustiblePage() {
     };
 
     const [formData, setFormData] = useState(emptyForm);
+    const [useManualEquipo, setUseManualEquipo] = useState(false);
 
     useEffect(() => {
         if (profile && !puedeVer(userRole, 'combustible')) {
@@ -156,11 +158,17 @@ export default function CombustiblePage() {
         }
 
         setEditingItem(null);
+        setUseManualEquipo(false);
         setShowModal(true);
     }
 
     function openEditModal(item: RegistroCombustible) {
         setFormData(item);
+
+        // Check if equipment code is not in EQUIPOS_MAESTRO (custom/manual entry)
+        const isManualEquipo = item.codigo_maquina !== 'CISTERNA' &&
+            !EQUIPOS_MAESTRO.some(eq => eq.codigo === item.codigo_maquina);
+        setUseManualEquipo(isManualEquipo);
 
         if (item.tipo_movimiento === 'ENTRADA') {
             setTipoFormulario('ABASTECER_CISTERNA');
@@ -473,8 +481,8 @@ export default function CombustiblePage() {
                         <button
                             onClick={() => setActiveTab('movimientos')}
                             className={`px-6 py-4 text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === 'movimientos'
-                                    ? 'text-amber-600 border-b-2 border-amber-500 bg-white'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                ? 'text-amber-600 border-b-2 border-amber-500 bg-white'
+                                : 'text-gray-500 hover:text-gray-700'
                                 }`}
                         >
                             <Fuel size={18} />
@@ -483,8 +491,8 @@ export default function CombustiblePage() {
                         <button
                             onClick={() => setActiveTab('rendimiento')}
                             className={`px-6 py-4 text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === 'rendimiento'
-                                    ? 'text-amber-600 border-b-2 border-amber-500 bg-white'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                ? 'text-amber-600 border-b-2 border-amber-500 bg-white'
+                                : 'text-gray-500 hover:text-gray-700'
                                 }`}
                         >
                             <BarChart3 size={18} />
@@ -665,8 +673,8 @@ export default function CombustiblePage() {
                                                 </td>
                                                 <td>
                                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${r.fuente_combustible === 'CISTERNA'
-                                                            ? 'bg-blue-100 text-blue-700'
-                                                            : 'bg-purple-100 text-purple-700'
+                                                        ? 'bg-blue-100 text-blue-700'
+                                                        : 'bg-purple-100 text-purple-700'
                                                         }`}>
                                                         {r.fuente_combustible === 'CISTERNA' ? '🛢️ Cisterna' : '🏪 Grifo'}
                                                     </span>
@@ -755,8 +763,8 @@ export default function CombustiblePage() {
                                                 <td>
                                                     <div className="flex items-center gap-2">
                                                         <span className={`text-lg font-bold ${r.rendimiento_gal_hora <= 3 ? 'text-green-600' :
-                                                                r.rendimiento_gal_hora <= 5 ? 'text-amber-600' :
-                                                                    'text-red-600'
+                                                            r.rendimiento_gal_hora <= 5 ? 'text-amber-600' :
+                                                                'text-red-600'
                                                             }`}>
                                                             {r.rendimiento_gal_hora.toFixed(2)}
                                                         </span>
@@ -807,8 +815,8 @@ export default function CombustiblePage() {
                         <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
                             {/* Info de tipo de registro */}
                             <div className={`p-3 rounded-lg text-sm ${tipoFormulario === 'ABASTECER_CISTERNA' ? 'bg-green-50 text-green-700' :
-                                    tipoFormulario === 'DESPACHO_CISTERNA' ? 'bg-amber-50 text-amber-700' :
-                                        'bg-purple-50 text-purple-700'
+                                tipoFormulario === 'DESPACHO_CISTERNA' ? 'bg-amber-50 text-amber-700' :
+                                    'bg-purple-50 text-purple-700'
                                 }`}>
                                 {tipoFormulario === 'ABASTECER_CISTERNA' && '📦 Este registro aumentará el stock de la cisterna'}
                                 {tipoFormulario === 'DESPACHO_CISTERNA' && '🛢️ Este registro reducirá el stock de la cisterna'}
@@ -890,23 +898,67 @@ export default function CombustiblePage() {
                                 // Campos para SALIDA desde cisterna
                                 <>
                                     <div>
-                                        <label className="label">Equipo *</label>
-                                        <select
-                                            className="input"
-                                            value={formData.codigo_maquina}
-                                            onChange={(e) => setFormData({ ...formData, codigo_maquina: e.target.value })}
-                                        >
-                                            <option value="">Seleccionar...</option>
-                                            {EQUIPOS_MAESTRO.map(eq => (
-                                                <option key={eq.codigo} value={eq.codigo}>
-                                                    {eq.codigo} - {eq.tipo} {eq.modelo} ({eq.serie})
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="label mb-0">Equipo *</label>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setUseManualEquipo(!useManualEquipo);
+                                                    if (!useManualEquipo) {
+                                                        setFormData({ ...formData, codigo_maquina: '', tipo_maquina: '' });
+                                                    }
+                                                }}
+                                                className={`text-xs px-3 py-1 rounded-full flex items-center gap-1 transition-colors ${useManualEquipo
+                                                    ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                    }`}
+                                            >
+                                                {useManualEquipo ? (
+                                                    <><Car size={14} /> Modo Manual</>
+                                                ) : (
+                                                    <>📋 Seleccionar de Lista</>
+                                                )}
+                                            </button>
+                                        </div>
+
+                                        {useManualEquipo ? (
+                                            <div className="space-y-3">
+                                                <input
+                                                    type="text"
+                                                    className="input"
+                                                    placeholder="Código o Placa (ej: ABC-123, CAM-01)"
+                                                    value={formData.codigo_maquina}
+                                                    onChange={(e) => setFormData({ ...formData, codigo_maquina: e.target.value.toUpperCase() })}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    className="input"
+                                                    placeholder="Tipo de vehículo (ej: CAMIONETA, FURGONETA)"
+                                                    value={formData.tipo_maquina || ''}
+                                                    onChange={(e) => setFormData({ ...formData, tipo_maquina: e.target.value.toUpperCase() })}
+                                                />
+                                                <p className="text-xs text-gray-500 flex items-center gap-1">
+                                                    <Car size={12} /> Ingresa la placa o código del vehículo manualmente
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <select
+                                                className="input"
+                                                value={formData.codigo_maquina}
+                                                onChange={(e) => setFormData({ ...formData, codigo_maquina: e.target.value })}
+                                            >
+                                                <option value="">Seleccionar...</option>
+                                                {EQUIPOS_MAESTRO.map(eq => (
+                                                    <option key={eq.codigo} value={eq.codigo}>
+                                                        {eq.codigo} - {eq.tipo} {eq.modelo} ({eq.serie})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="label">Horómetro</label>
+                                            <label className="label">{useManualEquipo ? 'Kilometraje / Horómetro' : 'Horómetro'}</label>
                                             <input
                                                 type="number"
                                                 className="input"
@@ -936,19 +988,63 @@ export default function CombustiblePage() {
                                 // Campos para salida con compra en grifo
                                 <>
                                     <div>
-                                        <label className="label">Equipo *</label>
-                                        <select
-                                            className="input"
-                                            value={formData.codigo_maquina}
-                                            onChange={(e) => setFormData({ ...formData, codigo_maquina: e.target.value })}
-                                        >
-                                            <option value="">Seleccionar...</option>
-                                            {EQUIPOS_MAESTRO.map(eq => (
-                                                <option key={eq.codigo} value={eq.codigo}>
-                                                    {eq.codigo} - {eq.tipo} {eq.modelo} ({eq.serie})
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="label mb-0">Equipo *</label>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setUseManualEquipo(!useManualEquipo);
+                                                    if (!useManualEquipo) {
+                                                        setFormData({ ...formData, codigo_maquina: '', tipo_maquina: '' });
+                                                    }
+                                                }}
+                                                className={`text-xs px-3 py-1 rounded-full flex items-center gap-1 transition-colors ${useManualEquipo
+                                                    ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                    }`}
+                                            >
+                                                {useManualEquipo ? (
+                                                    <><Car size={14} /> Modo Manual</>
+                                                ) : (
+                                                    <>📋 Seleccionar de Lista</>
+                                                )}
+                                            </button>
+                                        </div>
+
+                                        {useManualEquipo ? (
+                                            <div className="space-y-3">
+                                                <input
+                                                    type="text"
+                                                    className="input"
+                                                    placeholder="Código o Placa (ej: ABC-123, CAM-01)"
+                                                    value={formData.codigo_maquina}
+                                                    onChange={(e) => setFormData({ ...formData, codigo_maquina: e.target.value.toUpperCase() })}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    className="input"
+                                                    placeholder="Tipo de vehículo (ej: CAMIONETA, FURGONETA)"
+                                                    value={formData.tipo_maquina || ''}
+                                                    onChange={(e) => setFormData({ ...formData, tipo_maquina: e.target.value.toUpperCase() })}
+                                                />
+                                                <p className="text-xs text-gray-500 flex items-center gap-1">
+                                                    <Car size={12} /> Ingresa la placa o código del vehículo manualmente
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <select
+                                                className="input"
+                                                value={formData.codigo_maquina}
+                                                onChange={(e) => setFormData({ ...formData, codigo_maquina: e.target.value })}
+                                            >
+                                                <option value="">Seleccionar...</option>
+                                                {EQUIPOS_MAESTRO.map(eq => (
+                                                    <option key={eq.codigo} value={eq.codigo}>
+                                                        {eq.codigo} - {eq.tipo} {eq.modelo} ({eq.serie})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
                                     </div>
                                     <div>
                                         <label className="label">Nombre del Grifo *</label>
@@ -977,7 +1073,7 @@ export default function CombustiblePage() {
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="label">Horómetro</label>
+                                            <label className="label">{useManualEquipo ? 'Kilometraje / Horómetro' : 'Horómetro'}</label>
                                             <input
                                                 type="number"
                                                 className="input"
