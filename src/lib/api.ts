@@ -1,20 +1,38 @@
 'use client';
 
+import { createClient } from './supabase';
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1`
     : '';
 
-function getHeaders(): HeadersInit {
+async function getHeaders(): Promise<HeadersInit> {
     const apiKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
     if (!apiKey) {
         console.warn('⚠️ NEXT_PUBLIC_SUPABASE_ANON_KEY no está configurada');
     }
-    return {
+
+    const headers: any = {
         'apikey': apiKey,
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${apiKey}`, // Default anon key
         'Content-Type': 'application/json',
         'Prefer': 'return=representation'
     };
+
+    // Intentar inyectar token de usuario si existe sesión
+    try {
+        const supabase = createClient();
+        if (supabase) {
+            const { data } = await supabase.auth.getSession();
+            if (data?.session?.access_token) {
+                headers['Authorization'] = `Bearer ${data.session.access_token}`;
+            }
+        }
+    } catch (error) {
+        console.warn('⚠️ Error obteniendo sesión para headers:', error);
+    }
+
+    return headers;
 }
 
 function isConfigured(): boolean {
@@ -35,15 +53,20 @@ export async function fetchTableWithStatus<T>(table: string, query: string = '')
     }
     try {
         const url = `${SUPABASE_URL}/${table}?select=*${query}`;
-        console.log(`📡 fetchTable(${table}):`, url);
+        console.log(`📡 fetchTable(${table}) iniciando...`);
 
+        const headers = await getHeaders();
         const response = await fetch(url, {
-            headers: getHeaders()
+            headers
         });
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error(`❌ fetchTable(${table}) error ${response.status}:`, errorText);
+            // console.error(`❌ fetchTable(${table}) error ${response.status}:`, errorText);
+            // No loguear error 401/403 si es por RLS y estamos testeando conexión, pero sí loguear otros
+            if (response.status !== 401 && response.status !== 403) {
+                console.error(`❌ fetchTable(${table}) error ${response.status}:`, errorText);
+            }
             return { data: [], connected: false };
         }
 
@@ -57,37 +80,48 @@ export async function fetchTableWithStatus<T>(table: string, query: string = '')
 }
 
 export async function insertRow<T>(table: string, data: Partial<T>): Promise<T | null> {
+    const headers = await getHeaders();
     const response = await fetch(`${SUPABASE_URL}/${table}`, {
         method: 'POST',
-        headers: getHeaders(),
+        headers,
         body: JSON.stringify(data)
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+        const err = await response.text();
+        console.error(`Error inserting into ${table}:`, err);
+        return null;
+    }
     const result = await response.json();
     return result[0] || null;
 }
 
 export async function updateRow<T>(table: string, id: string, data: Partial<T>): Promise<T | null> {
+    const headers = await getHeaders();
     const response = await fetch(`${SUPABASE_URL}/${table}?id=eq.${id}`, {
         method: 'PATCH',
-        headers: getHeaders(),
+        headers,
         body: JSON.stringify(data)
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+        const err = await response.text();
+        console.error(`Error updating ${table}:`, err);
+        return null;
+    }
     const result = await response.json();
     return result[0] || null;
 }
 
 export async function deleteRow(table: string, id: string): Promise<boolean> {
     const url = `${SUPABASE_URL}/${table}?id=eq.${id}`;
-    console.log(`🗑️ deleteRow: ${url}`);
+    // console.log(`🗑️ deleteRow: ${url}`);
 
+    const headers = await getHeaders();
     const response = await fetch(url, {
         method: 'DELETE',
-        headers: getHeaders()
+        headers
     });
 
-    console.log(`🗑️ deleteRow response: ${response.status} ${response.statusText}`);
+    // console.log(`🗑️ deleteRow response: ${response.status} ${response.statusText}`);
 
     if (!response.ok) {
         const errorText = await response.text();
@@ -99,9 +133,10 @@ export async function deleteRow(table: string, id: string): Promise<boolean> {
 
 export async function deleteRows(table: string, ids: string[]): Promise<boolean> {
     const idsParam = ids.map(id => `"${id}"`).join(',');
+    const headers = await getHeaders();
     const response = await fetch(`${SUPABASE_URL}/${table}?id=in.(${idsParam})`, {
         method: 'DELETE',
-        headers: getHeaders()
+        headers
     });
     return response.ok;
 }
@@ -115,7 +150,7 @@ export async function registrarCambio(
     datosNuevos: any,
     usuario: { id: string; email: string; nombre: string }
 ): Promise<boolean> {
-    console.log('📝 registrarCambio llamado:', { tabla, accion, registroId });
+    // console.log('📝 registrarCambio llamado:', { tabla, accion, registroId });
 
     if (!isConfigured()) {
         console.log('❌ Supabase no configurado');
@@ -137,15 +172,16 @@ export async function registrarCambio(
             usuario_nombre: usuario.nombre
         };
 
-        console.log('📤 Enviando a historial:', body);
+        // console.log('📤 Enviando a historial:', body);
 
+        const headers = await getHeaders();
         const response = await fetch(`${SUPABASE_URL}/historial`, {
             method: 'POST',
-            headers: getHeaders(),
+            headers,
             body: JSON.stringify(body)
         });
 
-        console.log('📥 Respuesta:', response.status, response.statusText);
+        // console.log('📥 Respuesta:', response.status, response.statusText);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -227,9 +263,10 @@ export async function insertRowWithResult<T>(table: string, data: Partial<T>): P
     }
 
     try {
+        const headers = await getHeaders();
         const response = await fetch(`${SUPABASE_URL}/${table}`, {
             method: 'POST',
-            headers: getHeaders(),
+            headers,
             body: JSON.stringify(data)
         });
 
@@ -254,9 +291,10 @@ export async function updateRowWithResult<T>(table: string, id: string, data: Pa
     }
 
     try {
+        const headers = await getHeaders();
         const response = await fetch(`${SUPABASE_URL}/${table}?id=eq.${id}`, {
             method: 'PATCH',
-            headers: getHeaders(),
+            headers,
             body: JSON.stringify(data)
         });
 
@@ -281,9 +319,10 @@ export async function deleteRowWithResult(table: string, id: string): Promise<Ap
     }
 
     try {
+        const headers = await getHeaders();
         const response = await fetch(`${SUPABASE_URL}/${table}?id=eq.${id}`, {
             method: 'DELETE',
-            headers: getHeaders()
+            headers
         });
 
         if (!response.ok) {
@@ -313,6 +352,7 @@ export async function getEquiposVinculados(identificador: string): Promise<{
 
     try {
         // Buscar primero en maquinaria por código o serie
+        // Aqui fetchTable(maquinaria) usar getHeadersWithAuth lo cual esta bien.
         const maquinarias = await fetchTable<any>('maquinaria');
         const maquinaria = maquinarias.find(m =>
             m.codigo === identificador || m.serie === identificador
