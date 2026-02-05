@@ -49,7 +49,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     useEffect(() => {
         let isMounted = true;
         let retryCount = 0;
-        const maxRetries = 2; // Reducido para inicio más rápido
+        let authCompleted = false; // Flag para saber si ya terminó
+        const maxRetries = 2;
         const supabase = createClient();
 
         // Si Supabase no está configurado, no intentar autenticar
@@ -60,25 +61,20 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         }
 
         async function initAuth() {
-            if (!supabase) return;
+            if (!supabase || authCompleted) return;
             try {
-                // Timeout reducido a 3s para respuesta más rápida
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 3000);
-
                 const { data: { session }, error } = await supabase.auth.getSession();
-                clearTimeout(timeout);
 
-                if (!isMounted) return;
+                if (!isMounted || authCompleted) return;
 
                 if (error) {
                     console.error('Error getting session:', error);
-                    // Solo un reintento rápido
                     if (retryCount < maxRetries) {
                         retryCount++;
                         await new Promise(resolve => setTimeout(resolve, 500));
                         return initAuth();
                     }
+                    authCompleted = true;
                     setLoading(false);
                     return;
                 }
@@ -87,21 +83,23 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
                 setUser(session?.user ?? null);
 
                 if (session?.user) {
-                    // Fetch profile en paralelo, no bloquear
+                    // Marcar como completado y fetch profile
+                    authCompleted = true;
                     fetchProfile(session.user.id);
                 } else {
+                    authCompleted = true;
                     setLoading(false);
                 }
             } catch (err: any) {
-                if (!isMounted) return;
+                if (!isMounted || authCompleted) return;
                 console.error('Auth initialization error:', err);
 
-                // Reintentar solo una vez
-                if (retryCount < maxRetries && err.name !== 'AbortError') {
+                if (retryCount < maxRetries) {
                     retryCount++;
                     await new Promise(resolve => setTimeout(resolve, 500));
                     return initAuth();
                 }
+                authCompleted = true;
                 setLoading(false);
             }
         }
@@ -109,13 +107,14 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         // Iniciar autenticación
         initAuth();
 
-        // SAFETY NET: Timeout reducido a 5 segundos
+        // SAFETY NET: Solo actuar si auth no completó en 8 segundos
         const absoluteTimeout = setTimeout(() => {
-            if (isMounted && loading) {
+            if (isMounted && !authCompleted) {
                 console.warn('⚠️ Timeout de autenticación - liberando loading');
+                authCompleted = true;
                 setLoading(false);
             }
-        }, 5000);
+        }, 8000);
 
         // Escuchar cambios de autenticación
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
