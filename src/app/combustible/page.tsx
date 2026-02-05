@@ -303,8 +303,11 @@ export default function CombustiblePage() {
 
     // Cálculo de rendimiento por máquina
     const rendimientoMaquinas = useMemo((): RendimientoMaquina[] => {
+        // Solo considerar despachos desde cisterna (consumo real)
+        // Excluir abastecimientos en grifo (son recargas, no consumo)
         const salidas = registros.filter(r =>
             r.tipo_movimiento === 'SALIDA' &&
+            r.fuente_combustible === 'CISTERNA' &&  // Solo despachos de cisterna
             r.codigo_maquina !== 'CISTERNA' &&
             r.horometro && r.horometro > 0
         );
