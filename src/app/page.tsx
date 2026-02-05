@@ -135,7 +135,18 @@ export default function Dashboard() {
 
   const disponibilidad = ((stats.operativo + stats.alquilado) / stats.total * 100).toFixed(1);
 
-  // Alertas urgentes
+  // Función para calcular días restantes dinámicamente
+  const calcularDiasRestantes = (fechaVencimiento: string | null): number => {
+    if (!fechaVencimiento) return 999; // Sin fecha = no urgente
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const vencimiento = new Date(fechaVencimiento);
+    vencimiento.setHours(0, 0, 0, 0);
+    const diffTime = vencimiento.getTime() - hoy.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  // Alertas urgentes - calculando días restantes dinámicamente
   const alertasUrgentes = [
     ...mantenimientos
       .filter(m => m.estado_alerta === 'URGENTE' || m.estado_alerta === 'VENCIDO')
@@ -148,24 +159,26 @@ export default function Dashboard() {
         urgencia: m.estado_alerta === 'VENCIDO' ? 0 : 1,
       })),
     ...soat
-      .filter(s => s.dias_restantes <= 15)
+      .map(s => ({ ...s, dias_calc: calcularDiasRestantes(s.fecha_vencimiento) }))
+      .filter(s => s.dias_calc <= 15)
       .map(s => ({
         tipo: 'soat',
         codigo: s.codigo,
-        mensaje: s.dias_restantes <= 0
+        mensaje: s.dias_calc <= 0
           ? `⛔ SOAT VENCIDO`
-          : `🔴 SOAT vence en ${s.dias_restantes} días`,
-        urgencia: s.dias_restantes <= 0 ? 0 : (s.dias_restantes <= 7 ? 1 : 2),
+          : `🔴 SOAT vence en ${s.dias_calc} días`,
+        urgencia: s.dias_calc <= 0 ? 0 : (s.dias_calc <= 7 ? 1 : 2),
       })),
     ...citv
-      .filter(c => c.dias_restantes <= 15)
+      .map(c => ({ ...c, dias_calc: calcularDiasRestantes(c.fecha_vencimiento) }))
+      .filter(c => c.dias_calc <= 15)
       .map(c => ({
         tipo: 'citv',
         codigo: c.codigo,
-        mensaje: c.dias_restantes <= 0
+        mensaje: c.dias_calc <= 0
           ? `⛔ CITV VENCIDO`
-          : `🔴 CITV vence en ${c.dias_restantes} días`,
-        urgencia: c.dias_restantes <= 0 ? 0 : (c.dias_restantes <= 7 ? 1 : 2),
+          : `🔴 CITV vence en ${c.dias_calc} días`,
+        urgencia: c.dias_calc <= 0 ? 0 : (c.dias_calc <= 7 ? 1 : 2),
       })),
   ].sort((a, b) => a.urgencia - b.urgencia);
 

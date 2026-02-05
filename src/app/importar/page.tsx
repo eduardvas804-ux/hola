@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { createClient } from '@/lib/supabase';
+import { EQUIPOS_MAESTRO, getEquipoPorCodigoOSerie } from '@/lib/equipos-data';
 
 type ImportType = 'maquinaria' | 'mantenimientos' | 'soat' | 'citv' | 'filtros';
 
@@ -319,8 +320,43 @@ export default function ImportarPage() {
 
                 // Limpiar nombre de máquina (quitar emojis)
                 const nombreLimpio = maquina.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
-                const match = nombreLimpio.match(/^([^(]+)/);
-                const codigo = match ? match[1].trim().replace(/\s+/g, '-').substring(0, 20) : nombreLimpio.substring(0, 20);
+
+                // NUEVO: Auto-vincular con EQUIPOS_MAESTRO usando serie o código
+                // Buscar en el nombre si hay una serie conocida (ej: "EXCAVADORA 320D (FAL10955)")
+                let codigoFinal = '';
+                let equipoEncontrado = false;
+
+                // Intentar extraer la serie del nombre (entre paréntesis o al final)
+                const serieMatch = nombreLimpio.match(/\(([^)]+)\)/) || nombreLimpio.match(/\s+([A-Z0-9]{6,})$/);
+                if (serieMatch) {
+                    const posibleSerie = serieMatch[1].trim();
+                    const equipo = getEquipoPorCodigoOSerie(posibleSerie);
+                    if (equipo) {
+                        codigoFinal = equipo.codigo;
+                        equipoEncontrado = true;
+                        console.log(`✅ Serie ${posibleSerie} vinculada a código ${equipo.codigo}`);
+                    }
+                }
+
+                // Si no encontró por serie, buscar por nombre directo
+                if (!equipoEncontrado) {
+                    // Intentar buscar si el nombre contiene algún código conocido
+                    for (const eq of EQUIPOS_MAESTRO) {
+                        if (nombreLimpio.toUpperCase().includes(eq.codigo) ||
+                            nombreLimpio.toUpperCase().includes(eq.serie)) {
+                            codigoFinal = eq.codigo;
+                            equipoEncontrado = true;
+                            console.log(`✅ Texto "${nombreLimpio}" vinculado a código ${eq.codigo}`);
+                            break;
+                        }
+                    }
+                }
+
+                // Fallback: usar nombre limpio como código
+                if (!codigoFinal) {
+                    const match = nombreLimpio.match(/^([^(]+)/);
+                    codigoFinal = match ? match[1].trim().replace(/\s+/g, '-').substring(0, 20) : nombreLimpio.substring(0, 20);
+                }
 
                 const sep1 = parseFiltro(row[1]);
                 const sep2 = parseFiltro(row[2]);
@@ -331,7 +367,7 @@ export default function ImportarPage() {
                 const aireSec = parseFiltro(row[7]);
 
                 filtros.push({
-                    maquinaria_codigo: codigo,
+                    maquinaria_codigo: codigoFinal,
                     maquinaria_descripcion: nombreLimpio,
                     filtro_separador_1: sep1.codigo,
                     cantidad_sep_1: sep1.cantidad,
@@ -378,11 +414,44 @@ export default function ImportarPage() {
                         filtros.push(currentFiltro);
                     }
                     currentMachine = col0;
-                    const match = col0.match(/^([^(]+)/);
-                    const codigo = match ? match[1].trim().replace(/\s+/g, '-').substring(0, 15) : col0.substring(0, 15);
+
+                    // NUEVO: Auto-vincular con EQUIPOS_MAESTRO
+                    let codigoFinal = '';
+                    let equipoEncontrado = false;
+
+                    // Intentar extraer la serie del nombre
+                    const serieMatch = col0.match(/\(([^)]+)\)/) || col0.match(/\s+([A-Z0-9]{6,})$/);
+                    if (serieMatch) {
+                        const posibleSerie = serieMatch[1].trim();
+                        const equipo = getEquipoPorCodigoOSerie(posibleSerie);
+                        if (equipo) {
+                            codigoFinal = equipo.codigo;
+                            equipoEncontrado = true;
+                            console.log(`✅ [Vertical] Serie ${posibleSerie} vinculada a código ${equipo.codigo}`);
+                        }
+                    }
+
+                    // Buscar por código o serie en el texto
+                    if (!equipoEncontrado) {
+                        for (const eq of EQUIPOS_MAESTRO) {
+                            if (col0.toUpperCase().includes(eq.codigo) ||
+                                col0.toUpperCase().includes(eq.serie)) {
+                                codigoFinal = eq.codigo;
+                                equipoEncontrado = true;
+                                console.log(`✅ [Vertical] Texto "${col0}" vinculado a código ${eq.codigo}`);
+                                break;
+                            }
+                        }
+                    }
+
+                    // Fallback
+                    if (!codigoFinal) {
+                        const match = col0.match(/^([^(]+)/);
+                        codigoFinal = match ? match[1].trim().replace(/\s+/g, '-').substring(0, 15) : col0.substring(0, 15);
+                    }
 
                     currentFiltro = {
-                        maquinaria_codigo: codigo,
+                        maquinaria_codigo: codigoFinal,
                         maquinaria_descripcion: col0,
                         filtro_separador_1: '', cantidad_sep_1: 0,
                         filtro_combustible_1: '', cantidad_comb_1: 0,
