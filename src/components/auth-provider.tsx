@@ -109,6 +109,15 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         // Iniciar autenticación
         initAuth();
 
+        // SAFETY NET: Timeout absoluto de 10 segundos
+        // Si la autenticación no termina en 10s, liberamos el loading
+        const absoluteTimeout = setTimeout(() => {
+            if (isMounted && loading) {
+                console.warn('⚠️ Timeout de autenticación - liberando loading');
+                setLoading(false);
+            }
+        }, 10000);
+
         // Escuchar cambios de autenticación
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
@@ -139,6 +148,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
         return () => {
             isMounted = false;
+            clearTimeout(absoluteTimeout);
             subscription.unsubscribe();
         };
     }, []);
