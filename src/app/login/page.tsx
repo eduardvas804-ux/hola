@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, Loader2, ShieldCheck, Truck } from 'lucide-react';
+import { Mail, Lock, Loader2, HardHat, Cog } from 'lucide-react';
+import Image from 'next/image';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
@@ -49,52 +50,106 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen flex bg-slate-50">
-            {/* Left Side - Image & Branding */}
-            <div className="hidden lg:flex lg:w-1/2 bg-slate-900 relative overflow-hidden items-center justify-center">
-                <div className="absolute inset-0 z-0 opacity-40">
-                    {/* Placeholder for corporate image - using a generic construction background pattern or color */}
-                    <div className="w-full h-full bg-[url('https://images.unsplash.com/photo-1581094794329-c8112a89af12?q=80&w=2544&auto=format&fit=crop')] bg-cover bg-center mix-blend-overlay"></div>
+        <div className="min-h-screen flex">
+            {/* Left Side - Dynamic Background with Excavator */}
+            <div className="hidden lg:flex lg:w-3/5 relative overflow-hidden">
+                {/* Background Image */}
+                <div className="absolute inset-0">
+                    <Image
+                        src="/login-bg.png"
+                        alt="Excavadora en obra"
+                        fill
+                        className="object-cover"
+                        priority
+                    />
+                    {/* Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 via-slate-900/70 to-transparent" />
                 </div>
 
-                <div className="relative z-10 text-center px-10">
-                    <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl border border-white/20 shadow-2xl">
-                        <Truck size={64} className="text-blue-400 mx-auto mb-6" />
-                        <h1 className="text-4xl font-bold text-white mb-4 tracking-tight">MAQUINARIA PRO</h1>
-                        <p className="text-blue-100 text-lg max-w-md mx-auto leading-relaxed">
-                            Sistema Integral de Gestión de Flota, Mantenimientos y Documentación Técnica.
+                {/* Content Overlay */}
+                <div className="relative z-10 flex flex-col justify-between p-12 w-full">
+                    {/* Logo Section */}
+                    <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30">
+                            <Cog className="text-white" size={32} />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-bold text-white tracking-tight">GESTIÓN DE</h1>
+                            <h1 className="text-2xl font-bold text-amber-400 tracking-tight">MAQUINARIA</h1>
+                        </div>
+                    </div>
+
+                    {/* Main Text */}
+                    <div className="max-w-lg">
+                        <h2 className="text-5xl font-bold text-white leading-tight mb-6">
+                            Control Total de tu
+                            <span className="text-amber-400"> Flota</span>
+                        </h2>
+                        <p className="text-xl text-slate-300 leading-relaxed">
+                            Sistema integral para la gestión de maquinaria pesada,
+                            mantenimientos preventivos, documentación y control de combustible.
                         </p>
+
+                        {/* Features */}
+                        <div className="mt-8 grid grid-cols-2 gap-4">
+                            {[
+                                { icon: '🚜', text: 'Gestión de Flota' },
+                                { icon: '🔧', text: 'Mantenimientos' },
+                                { icon: '⛽', text: 'Control Combustible' },
+                                { icon: '📋', text: 'Documentación' },
+                            ].map((feature, i) => (
+                                <div key={i} className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3">
+                                    <span className="text-2xl">{feature.icon}</span>
+                                    <span className="text-white font-medium">{feature.text}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="text-slate-400 text-sm">
+                        © 2026 Grupo Vásquez. Todos los derechos reservados.
                     </div>
                 </div>
-
-                {/* Decorative circles */}
-                <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-                <div className="absolute -top-20 -right-20 w-80 h-80 bg-indigo-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
             </div>
 
             {/* Right Side - Login Form */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-16 relative">
-                <div className="w-full max-w-md space-y-8">
-                    <div className="text-center lg:text-left">
-                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-100 text-blue-700 mb-6 lg:hidden">
-                            <ShieldCheck size={24} />
+            <div className="w-full lg:w-2/5 flex items-center justify-center p-8 lg:p-12 bg-gradient-to-br from-slate-50 to-slate-100">
+                <div className="w-full max-w-md">
+                    {/* Mobile Logo */}
+                    <div className="lg:hidden text-center mb-8">
+                        <div className="inline-flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg">
+                                <Cog className="text-white" size={28} />
+                            </div>
+                            <div className="text-left">
+                                <h1 className="text-lg font-bold text-slate-800">GESTIÓN DE</h1>
+                                <h1 className="text-lg font-bold text-amber-500">MAQUINARIA</h1>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Welcome Text */}
+                    <div className="text-center lg:text-left mb-8">
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 text-white mb-6 shadow-xl">
+                            <HardHat size={32} />
                         </div>
                         <h2 className="text-3xl font-bold text-slate-800 tracking-tight">
                             Bienvenido
                         </h2>
                         <p className="mt-2 text-slate-500">
-                            Ingrese sus credenciales para acceder al panel de control.
+                            Ingrese sus credenciales para acceder al sistema
                         </p>
                     </div>
 
-                    <form className="mt-8 space-y-6" onSubmit={handleAuth}>
+                    <form className="space-y-6" onSubmit={handleAuth}>
                         <div className="space-y-5">
                             <div>
-                                <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
+                                <label htmlFor="email" className="block text-sm font-semibold text-slate-700 mb-2">
                                     Correo Electrónico
                                 </label>
                                 <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                         <Mail className="h-5 w-5 text-slate-400" />
                                     </div>
                                     <input
@@ -103,7 +158,7 @@ export default function LoginPage() {
                                         type="email"
                                         autoComplete="email"
                                         required
-                                        className="block w-full pl-10 pr-3 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white text-slate-900"
+                                        className="block w-full pl-12 pr-4 py-4 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all bg-white text-slate-900 placeholder:text-slate-400"
                                         placeholder="usuario@empresa.com"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
@@ -112,11 +167,11 @@ export default function LoginPage() {
                             </div>
 
                             <div>
-                                <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
+                                <label htmlFor="password" className="block text-sm font-semibold text-slate-700 mb-2">
                                     Contraseña
                                 </label>
                                 <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                         <Lock className="h-5 w-5 text-slate-400" />
                                     </div>
                                     <input
@@ -125,7 +180,7 @@ export default function LoginPage() {
                                         type="password"
                                         autoComplete="current-password"
                                         required
-                                        className="block w-full pl-10 pr-3 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white text-slate-900"
+                                        className="block w-full pl-12 pr-4 py-4 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all bg-white text-slate-900 placeholder:text-slate-400"
                                         placeholder="••••••••"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
@@ -135,51 +190,39 @@ export default function LoginPage() {
                         </div>
 
                         {error && (
-                            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
-                                <div className="flex">
+                            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl animate-shake">
+                                <div className="flex items-center gap-3">
                                     <div className="flex-shrink-0">
-                                        <AlertCircle className="h-5 w-5 text-red-500" />
+                                        <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                        </svg>
                                     </div>
-                                    <div className="ml-3">
-                                        <p className="text-sm text-red-700">{error}</p>
-                                    </div>
+                                    <p className="text-sm text-red-700 font-medium">{error}</p>
                                 </div>
                             </div>
                         )}
 
-                        <div>
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-900 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-                            >
-                                {loading ? (
-                                    <>
-                                        <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />
-                                        Procesando...
-                                    </>
-                                ) : (
-                                    'Iniciar Sesión'
-                                )}
-                            </button>
-                        </div>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full flex justify-center items-center gap-2 py-4 px-6 border border-transparent rounded-xl text-base font-semibold text-white bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40"
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 className="animate-spin h-5 w-5" />
+                                    Procesando...
+                                </>
+                            ) : (
+                                'Iniciar Sesión'
+                            )}
+                        </button>
 
-
-
-                        <div className="text-center text-xs text-slate-400 mt-8">
-                            &copy; 2026 Grupo Vásquez. Sistema de Gestión Interna.
+                        <div className="text-center text-xs text-slate-400 mt-8 pt-6 border-t border-slate-200">
+                            Sistema de Gestión Interna v2.0
                         </div>
                     </form>
                 </div>
             </div>
         </div>
-    );
-}
-
-function AlertCircle({ className }: { className?: string }) {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-        </svg>
     );
 }

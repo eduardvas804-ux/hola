@@ -47,6 +47,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
     useEffect(() => {
         let isMounted = true;
+        let retryCount = 0;
+        const maxRetries = 3;
         const supabase = createClient();
 
         // Si Supabase no está configurado, no intentar autenticar
@@ -56,40 +58,78 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
             return;
         }
 
-        // Timeout de seguridad - si tarda más de 3s, continuar sin sesión
-        const timeout = setTimeout(() => {
-            if (isMounted && loading) {
-                console.log('Auth timeout - redirigiendo a login');
-                setLoading(false);
-            }
-        }, 3000);
+        async function initAuth() {
+            if (!supabase) return;
+            try {
+                // Timeout de seguridad - si tarda más de 5s, reintentar
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 5000);
 
-        // Verificar sesión
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (!isMounted) return;
-            clearTimeout(timeout);
-            setSession(session);
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                fetchProfile(session.user.id);
-            } else {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                clearTimeout(timeout);
+
+                if (!isMounted) return;
+
+                if (error) {
+                    console.error('Error getting session:', error);
+                    // Reintentar si hay error y no hemos excedido los reintentos
+                    if (retryCount < maxRetries) {
+                        retryCount++;
+                        console.log(`Reintentando autenticación (${retryCount}/${maxRetries})...`);
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        return initAuth();
+                    }
+                    setLoading(false);
+                    return;
+                }
+
+                setSession(session);
+                setUser(session?.user ?? null);
+
+                if (session?.user) {
+                    await fetchProfile(session.user.id);
+                } else {
+                    setLoading(false);
+                }
+            } catch (err: any) {
+                if (!isMounted) return;
+                console.error('Auth initialization error:', err);
+
+                // Reintentar en caso de error de red
+                if (retryCount < maxRetries && err.name !== 'AbortError') {
+                    retryCount++;
+                    console.log(`Reintentando autenticación (${retryCount}/${maxRetries})...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    return initAuth();
+                }
                 setLoading(false);
             }
-        }).catch(err => {
-            if (!isMounted) return;
-            clearTimeout(timeout);
-            console.log('Auth check failed:', err?.message);
-            setLoading(false);
-        });
+        }
+
+        // Iniciar autenticación
+        initAuth();
 
         // Escuchar cambios de autenticación
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (_event, session) => {
+            async (event, session) => {
                 if (!isMounted) return;
+
+                console.log('Auth state changed:', event);
+
+                // Evitar recargas innecesarias en eventos de TOKEN_REFRESHED
+                if (event === 'TOKEN_REFRESHED') {
+                    setSession(session);
+                    return;
+                }
+
                 setSession(session);
                 setUser(session?.user ?? null);
+
                 if (session?.user) {
-                    await fetchProfile(session.user.id);
+                    // Solo recargar perfil si es un evento significativo
+                    if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+                        await fetchProfile(session.user.id);
+                    }
                 } else {
                     setProfile(null);
                     setLoading(false);
@@ -99,7 +139,6 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
         return () => {
             isMounted = false;
-            clearTimeout(timeout);
             subscription.unsubscribe();
         };
     }, []);

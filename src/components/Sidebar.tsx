@@ -30,11 +30,14 @@ import {
     FileText,
     Sun,
     Moon,
+    HardHat,
+    Cog,
 } from 'lucide-react';
 
 const menuItems: { href: string; label: string; icon: any; seccion: Seccion }[] = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard, seccion: 'dashboard' },
     { href: '/maquinaria', label: 'Maquinaria', icon: Truck, seccion: 'maquinaria' },
+    { href: '/operadores', label: 'Operadores', icon: HardHat, seccion: 'operadores' },
     { href: '/mantenimientos', label: 'Mantenimientos', icon: Wrench, seccion: 'mantenimientos' },
     { href: '/combustible', label: 'Combustible', icon: Fuel, seccion: 'combustible' },
     { href: '/soat', label: 'Control SOAT', icon: FileCheck, seccion: 'soat' },
@@ -79,13 +82,13 @@ export default function Sidebar() {
                 <div className="p-6 border-b border-white/10">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-xl shadow-lg">
-                                M
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                                <Cog size={22} />
                             </div>
                             {(!collapsed || isMobile) && (
                                 <div>
-                                    <h1 className="text-white font-bold text-lg">MAQUINARIA</h1>
-                                    <p className="text-blue-200 text-xs">PRO Control</p>
+                                    <h1 className="text-white font-bold text-sm">GESTIÓN DE</h1>
+                                    <p className="text-amber-400 text-xs font-bold">MAQUINARIA</p>
                                 </div>
                             )}
                         </div>

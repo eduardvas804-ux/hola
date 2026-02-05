@@ -1,11 +1,11 @@
 {
-    "name": "MAQUINARIA PRO",
-    "short_name": "MaquinariaPRO",
+    "name": "GESTIÓN DE MAQUINARIA",
+    "short_name": "GestMaq",
     "description": "Sistema de Control y Gestión de Maquinaria Pesada",
     "start_url": "/",
     "display": "standalone",
-    "background_color": "#1E3A5F",
-    "theme_color": "#1E3A5F",
+    "background_color": "#1E293B",
+    "theme_color": "#F59E0B",
     "orientation": "any",
     "icons": [
         {
