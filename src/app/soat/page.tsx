@@ -26,6 +26,7 @@ import { Role, SOAT } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { EQUIPOS_MAESTRO } from '@/lib/equipos-data';
 import { useToast } from '@/components/toast-provider';
+import EquipoInfoCard from '@/components/equipo-info-card';
 
 export default function SOATPage() {
     const [soat, setSoat] = useState<SOAT[]>([]);
@@ -36,6 +37,7 @@ export default function SOATPage() {
     const [filterCodigo, setFilterCodigo] = useState<string>('');
     const [showCodigoFilter, setShowCodigoFilter] = useState(false);
     const [searchCodigo, setSearchCodigo] = useState('');
+    const [showEquipoInfo, setShowEquipoInfo] = useState<string | null>(null);
     const { profile, user } = useAuth();
     const router = useRouter();
     const userRole = profile?.rol as Role;
@@ -500,6 +502,18 @@ export default function SOATPage() {
                                 {editingItem ? 'Guardar Cambios' : 'Agregar SOAT'}
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Info Equipo Vinculado */}
+            {showEquipoInfo && (
+                <div className="modal-overlay" onClick={() => setShowEquipoInfo(null)}>
+                    <div className="modal-content max-w-2xl" onClick={e => e.stopPropagation()}>
+                        <EquipoInfoCard
+                            codigo={showEquipoInfo}
+                            onClose={() => setShowEquipoInfo(null)}
+                        />
                     </div>
                 </div>
             )}

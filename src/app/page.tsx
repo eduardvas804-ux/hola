@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Truck,
   CheckCircle2,
@@ -11,28 +12,29 @@ import {
   FileWarning,
   TrendingUp
 } from 'lucide-react';
-import { Doughnut, Bar } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
 import { ICONOS_MAQUINARIA, TipoMaquinaria } from '@/lib/types';
-import { formatNumber, formatDate, calcularAlertaDocumento } from '@/lib/utils';
+import { formatNumber } from '@/lib/utils';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend
+// Lazy load de Chart.js para mejorar TTI
+const DoughnutChart = dynamic(
+  () => import('react-chartjs-2').then(mod => {
+    // Registrar Chart.js solo cuando se necesita
+    const { Chart, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } = require('chart.js');
+    Chart.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
+    return { default: mod.Doughnut };
+  }),
+  {
+    ssr: false,
+    loading: () => <div className="h-[250px] bg-gray-100 rounded-lg animate-pulse" />
+  }
+);
+
+const BarChart = dynamic(
+  () => import('react-chartjs-2').then(mod => ({ default: mod.Bar })),
+  {
+    ssr: false,
+    loading: () => <div className="h-[250px] bg-gray-100 rounded-lg animate-pulse" />
+  }
 );
 
 // Datos de demo para cuando no hay Supabase configurado
@@ -423,7 +425,7 @@ export default function Dashboard() {
           <div className="card p-5">
             <h2 className="text-lg font-bold text-gray-800 mb-4">Distribución por Tipo</h2>
             <div className="chart-container" style={{ height: '250px' }}>
-              <Doughnut
+              <DoughnutChart
                 data={doughnutData}
                 options={{
                   responsive: true,
@@ -448,7 +450,7 @@ export default function Dashboard() {
           <div className="card p-5">
             <h2 className="text-lg font-bold text-gray-800 mb-4">Top 10 - Horas de Operación</h2>
             <div className="chart-container" style={{ height: '250px' }}>
-              <Bar data={barData} options={barOptions} />
+              <BarChart data={barData} options={barOptions} />
             </div>
           </div>
         </div>

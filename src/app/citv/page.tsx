@@ -25,6 +25,7 @@ import { puedeVer, puedeEditar, puedeExportar, puedeCrear, puedeEliminar } from 
 import { Role, CITV } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { EQUIPOS_MAESTRO } from '@/lib/equipos-data';
+import EquipoInfoCard from '@/components/equipo-info-card';
 
 export default function CITVPage() {
     const [citv, setCitv] = useState<CITV[]>([]);
@@ -34,6 +35,7 @@ export default function CITVPage() {
     const [filterCodigo, setFilterCodigo] = useState<string>('');
     const [showCodigoFilter, setShowCodigoFilter] = useState(false);
     const [searchCodigo, setSearchCodigo] = useState('');
+    const [showEquipoInfo, setShowEquipoInfo] = useState<string | null>(null);
     const [mensaje, setMensaje] = useState<{ tipo: 'success' | 'error'; texto: string } | null>(null);
     const { profile, loading: authLoading } = useAuth();
     const router = useRouter();
@@ -535,6 +537,18 @@ export default function CITVPage() {
                                 {editingItem ? 'Guardar Cambios' : 'Agregar CITV'}
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Info Equipo Vinculado */}
+            {showEquipoInfo && (
+                <div className="modal-overlay" onClick={() => setShowEquipoInfo(null)}>
+                    <div className="modal-content max-w-2xl" onClick={e => e.stopPropagation()}>
+                        <EquipoInfoCard
+                            codigo={showEquipoInfo}
+                            onClose={() => setShowEquipoInfo(null)}
+                        />
                     </div>
                 </div>
             )}

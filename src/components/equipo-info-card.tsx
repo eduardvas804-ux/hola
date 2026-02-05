@@ -114,10 +114,10 @@ export default function EquipoInfoCard({ codigo, onClose }: EquipoInfoCardProps)
             {/* Información vinculada */}
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Mantenimiento */}
-                <div className="border rounded-xl p-4">
+                <div className="border dark:border-gray-700 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-3">
                         <Wrench className="text-blue-500" size={20} />
-                        <h3 className="font-semibold text-gray-800">Mantenimiento</h3>
+                        <h3 className="font-semibold text-gray-800 dark:text-gray-200">Mantenimiento</h3>
                     </div>
                     {mantenimiento ? (
                         <div className="space-y-2 text-sm">

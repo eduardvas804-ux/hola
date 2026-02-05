@@ -29,6 +29,7 @@ import { useAuth } from '@/components/auth-provider';
 import { puedeVer, puedeCrear, puedeEditar, puedeEliminar, puedeExportar } from '@/lib/permisos';
 import { useRouter } from 'next/navigation';
 import { getCodigoConSerie, EQUIPOS_MAESTRO } from '@/lib/equipos-data';
+import EquipoInfoCard from '@/components/equipo-info-card';
 
 type TipoMovimiento = 'ENTRADA' | 'SALIDA';
 type TipoFormulario = 'ABASTECER_CISTERNA' | 'DESPACHO_CISTERNA' | 'ABASTECER_GRIFO';
@@ -69,6 +70,7 @@ export default function CombustiblePage() {
     const [searchCodigo, setSearchCodigo] = useState('');
     const [usingDemo, setUsingDemo] = useState(true);
     const [activeTab, setActiveTab] = useState<'movimientos' | 'rendimiento'>('movimientos');
+    const [showEquipoInfo, setShowEquipoInfo] = useState<string | null>(null);
     const { profile, user } = useAuth();
     const router = useRouter();
     const userRole = profile?.rol as Role;
@@ -1145,6 +1147,18 @@ export default function CombustiblePage() {
                                 Guardar
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Info Equipo Vinculado */}
+            {showEquipoInfo && (
+                <div className="modal-overlay" onClick={() => setShowEquipoInfo(null)}>
+                    <div className="modal-content max-w-2xl" onClick={e => e.stopPropagation()}>
+                        <EquipoInfoCard
+                            codigo={showEquipoInfo}
+                            onClose={() => setShowEquipoInfo(null)}
+                        />
                     </div>
                 </div>
             )}

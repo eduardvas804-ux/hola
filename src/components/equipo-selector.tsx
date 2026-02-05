@@ -1,9 +1,17 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Search, X } from 'lucide-react';
+import { ChevronDown, Search, X, Info } from 'lucide-react';
 import { EQUIPOS_MAESTRO } from '@/lib/equipos-data';
 import { ICONOS_MAQUINARIA, TipoMaquinaria } from '@/lib/types';
+
+export interface EquipoOption {
+    codigo: string;
+    tipo?: string;
+    modelo?: string;
+    serie?: string;
+    marca?: string;
+}
 
 interface EquipoSelectorProps {
     value: string;
@@ -11,11 +19,17 @@ interface EquipoSelectorProps {
     label?: string;
     placeholder?: string;
     // Si se proporcionan opciones, usa esas en lugar de EQUIPOS_MAESTRO
-    options?: { codigo: string; tipo?: string; modelo?: string; serie?: string }[];
+    options?: EquipoOption[];
     // Mostrar icono del tipo de maquinaria
     showIcon?: boolean;
     // Campo a usar como valor (codigo o serie)
     valueField?: 'codigo' | 'serie';
+    // Callback para mostrar info del equipo
+    onInfoClick?: (codigo: string) => void;
+    // Deshabilitar selector
+    disabled?: boolean;
+    // Clase CSS adicional
+    className?: string;
 }
 
 export default function EquipoSelector({
@@ -25,7 +39,10 @@ export default function EquipoSelector({
     placeholder = 'Todos los equipos...',
     options,
     showIcon = true,
-    valueField = 'codigo'
+    valueField = 'codigo',
+    onInfoClick,
+    disabled = false,
+    className = ''
 }: EquipoSelectorProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
@@ -82,35 +99,50 @@ export default function EquipoSelector({
     }
 
     return (
-        <div className="relative" ref={containerRef}>
+        <div className={`relative ${className}`} ref={containerRef}>
             {label && (
-                <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
             )}
             <div className="relative">
                 <button
                     type="button"
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="w-full input flex items-center justify-between text-left"
+                    onClick={() => !disabled && setIsOpen(!isOpen)}
+                    disabled={disabled}
+                    className={`w-full input flex items-center justify-between text-left ${
+                        disabled ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                 >
-                    <span className={value ? 'text-gray-800' : 'text-gray-400'}>
+                    <span className={value ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400'}>
                         {selectedItem ? getDisplayText(selectedItem) : placeholder}
                     </span>
-                    <ChevronDown
-                        size={18}
-                        className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-                    />
+                    <div className="flex items-center gap-1">
+                        {value && !disabled && (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleClear(); }}
+                                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                title="Limpiar"
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
+                        <ChevronDown
+                            size={18}
+                            className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                        />
+                    </div>
                 </button>
 
-                {isOpen && (
-                    <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-hidden">
+                {isOpen && !disabled && (
+                    <div className="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-80 overflow-hidden">
                         {/* Campo de búsqueda */}
-                        <div className="p-2 border-b sticky top-0 bg-white">
+                        <div className="p-2 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
                             <div className="relative">
                                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                 <input
                                     type="text"
                                     placeholder="Buscar código, serie o modelo..."
-                                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                     onClick={(e) => e.stopPropagation()}
@@ -125,8 +157,8 @@ export default function EquipoSelector({
                             <button
                                 type="button"
                                 onClick={() => { onChange(''); setIsOpen(false); setSearch(''); }}
-                                className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                                    !value ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                                className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                                    !value ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-gray-700 dark:text-gray-300'
                                 }`}
                             >
                                 Todos
@@ -137,32 +169,46 @@ export default function EquipoSelector({
                                 const isSelected = value === itemValue;
 
                                 return (
-                                    <button
+                                    <div
                                         key={item.codigo + (item.serie || '')}
-                                        type="button"
-                                        onClick={() => handleSelect(item)}
-                                        className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${
-                                            isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                                        className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 ${
+                                            isSelected ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-gray-700 dark:text-gray-300'
                                         }`}
                                     >
-                                        {showIcon && item.tipo && (
-                                            <span className="text-base">
-                                                {ICONOS_MAQUINARIA[item.tipo as TipoMaquinaria] || ''}
-                                            </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSelect(item)}
+                                            className="flex-1 flex items-center gap-2 text-left"
+                                        >
+                                            {showIcon && item.tipo && (
+                                                <span className="text-base">
+                                                    {ICONOS_MAQUINARIA[item.tipo as TipoMaquinaria] || '🔧'}
+                                                </span>
+                                            )}
+                                            <span className="font-medium">{item.codigo}</span>
+                                            {item.modelo && (
+                                                <span className="text-gray-500 dark:text-gray-400">{item.tipo} {item.modelo}</span>
+                                            )}
+                                            {item.serie && (
+                                                <span className="text-gray-400 dark:text-gray-500">({item.serie})</span>
+                                            )}
+                                        </button>
+                                        {onInfoClick && (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); onInfoClick(item.codigo); }}
+                                                className="p-1.5 text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded"
+                                                title="Ver información del equipo"
+                                            >
+                                                <Info size={16} />
+                                            </button>
                                         )}
-                                        <span className="font-medium">{item.codigo}</span>
-                                        {item.modelo && (
-                                            <span className="text-gray-500">{item.tipo} {item.modelo}</span>
-                                        )}
-                                        {item.serie && (
-                                            <span className="text-gray-400">({item.serie})</span>
-                                        )}
-                                    </button>
+                                    </div>
                                 );
                             })}
 
                             {filteredItems.length === 0 && (
-                                <div className="px-3 py-4 text-center text-gray-500 text-sm">
+                                <div className="px-3 py-4 text-center text-gray-500 dark:text-gray-400 text-sm">
                                     No se encontraron equipos
                                 </div>
                             )}
@@ -170,18 +216,6 @@ export default function EquipoSelector({
                     </div>
                 )}
             </div>
-
-            {/* Botón limpiar */}
-            {value && (
-                <button
-                    type="button"
-                    onClick={handleClear}
-                    className="absolute right-8 top-8 p-1 text-gray-400 hover:text-gray-600"
-                    title="Limpiar filtro"
-                >
-                    <X size={16} />
-                </button>
-            )}
         </div>
     );
 }

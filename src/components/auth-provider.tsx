@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
+import { clearTokenCache } from '@/lib/api';
 import { User, Session } from '@supabase/supabase-js';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -48,7 +49,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     useEffect(() => {
         let isMounted = true;
         let retryCount = 0;
-        const maxRetries = 3;
+        const maxRetries = 2; // Reducido para inicio más rápido
         const supabase = createClient();
 
         // Si Supabase no está configurado, no intentar autenticar
@@ -61,9 +62,9 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         async function initAuth() {
             if (!supabase) return;
             try {
-                // Timeout de seguridad - si tarda más de 5s, reintentar
+                // Timeout reducido a 3s para respuesta más rápida
                 const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 5000);
+                const timeout = setTimeout(() => controller.abort(), 3000);
 
                 const { data: { session }, error } = await supabase.auth.getSession();
                 clearTimeout(timeout);
@@ -72,11 +73,10 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
                 if (error) {
                     console.error('Error getting session:', error);
-                    // Reintentar si hay error y no hemos excedido los reintentos
+                    // Solo un reintento rápido
                     if (retryCount < maxRetries) {
                         retryCount++;
-                        console.log(`Reintentando autenticación (${retryCount}/${maxRetries})...`);
-                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        await new Promise(resolve => setTimeout(resolve, 500));
                         return initAuth();
                     }
                     setLoading(false);
@@ -87,7 +87,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
                 setUser(session?.user ?? null);
 
                 if (session?.user) {
-                    await fetchProfile(session.user.id);
+                    // Fetch profile en paralelo, no bloquear
+                    fetchProfile(session.user.id);
                 } else {
                     setLoading(false);
                 }
@@ -95,11 +96,10 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
                 if (!isMounted) return;
                 console.error('Auth initialization error:', err);
 
-                // Reintentar en caso de error de red
+                // Reintentar solo una vez
                 if (retryCount < maxRetries && err.name !== 'AbortError') {
                     retryCount++;
-                    console.log(`Reintentando autenticación (${retryCount}/${maxRetries})...`);
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    await new Promise(resolve => setTimeout(resolve, 500));
                     return initAuth();
                 }
                 setLoading(false);
@@ -109,14 +109,13 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         // Iniciar autenticación
         initAuth();
 
-        // SAFETY NET: Timeout absoluto de 10 segundos
-        // Si la autenticación no termina en 10s, liberamos el loading
+        // SAFETY NET: Timeout reducido a 5 segundos
         const absoluteTimeout = setTimeout(() => {
             if (isMounted && loading) {
                 console.warn('⚠️ Timeout de autenticación - liberando loading');
                 setLoading(false);
             }
-        }, 10000);
+        }, 5000);
 
         // Escuchar cambios de autenticación
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -220,6 +219,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     }
 
     async function signOut() {
+        clearTokenCache(); // Limpiar cache de tokens
         const supabase = createClient();
         if (supabase) {
             await supabase.auth.signOut();

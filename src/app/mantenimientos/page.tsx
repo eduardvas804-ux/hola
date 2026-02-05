@@ -22,6 +22,7 @@ import { puedeVer, puedeEditar, puedeExportar } from '@/lib/permisos';
 import { Role } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { getSeriePorCodigo, getCodigoConSerie } from '@/lib/equipos-data';
+import EquipoInfoCard from '@/components/equipo-info-card';
 
 // Tipo para los mantenimientos mostrados
 interface MantenimientoDisplay {
@@ -74,6 +75,7 @@ export default function MantenimientosPage() {
     const [showCodigoFilter, setShowCodigoFilter] = useState(false);
     const [searchCodigo, setSearchCodigo] = useState('');
     const [usingDemo, setUsingDemo] = useState(true);
+    const [showEquipoInfo, setShowEquipoInfo] = useState<string | null>(null);
     const { profile, user } = useAuth();
     const router = useRouter();
     const userRole = profile?.rol as Role;
@@ -408,7 +410,15 @@ export default function MantenimientosPage() {
                         <tbody>
                             {filteredData.map((m) => (
                                 <tr key={m.id}>
-                                    <td className="font-semibold">{m.codigo_maquina}</td>
+                                    <td>
+                                        <button
+                                            onClick={() => setShowEquipoInfo(m.codigo_maquina)}
+                                            className="font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                                            title="Ver información del equipo"
+                                        >
+                                            {m.codigo_maquina}
+                                        </button>
+                                    </td>
                                     <td>
                                         <span className="flex items-center gap-2">
                                             <span className="text-xl">{ICONOS_MAQUINARIA[m.tipo as TipoMaquinaria] || '🔧'}</span>
@@ -518,6 +528,18 @@ export default function MantenimientosPage() {
                                 Confirmar Mantenimiento
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Info Equipo Vinculado */}
+            {showEquipoInfo && (
+                <div className="modal-overlay" onClick={() => setShowEquipoInfo(null)}>
+                    <div className="modal-content max-w-2xl" onClick={e => e.stopPropagation()}>
+                        <EquipoInfoCard
+                            codigo={showEquipoInfo}
+                            onClose={() => setShowEquipoInfo(null)}
+                        />
                     </div>
                 </div>
             )}

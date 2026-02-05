@@ -6,6 +6,10 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1`
     : '';
 
+// Cache del token para evitar llamadas repetidas a getSession()
+let cachedToken: string | null = null;
+let tokenExpiry: number = 0;
+
 async function getHeaders(): Promise<HeadersInit> {
     const apiKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
     if (!apiKey) {
@@ -19,20 +23,36 @@ async function getHeaders(): Promise<HeadersInit> {
         'Prefer': 'return=representation'
     };
 
+    // Usar token cacheado si aún es válido (con 60s de margen)
+    const now = Date.now();
+    if (cachedToken && tokenExpiry > now + 60000) {
+        headers['Authorization'] = `Bearer ${cachedToken}`;
+        return headers;
+    }
+
     // Intentar inyectar token de usuario si existe sesión
     try {
         const supabase = createClient();
         if (supabase) {
             const { data } = await supabase.auth.getSession();
             if (data?.session?.access_token) {
-                headers['Authorization'] = `Bearer ${data.session.access_token}`;
+                cachedToken = data.session.access_token;
+                // El token de Supabase dura 1 hora por defecto
+                tokenExpiry = now + (55 * 60 * 1000); // 55 minutos
+                headers['Authorization'] = `Bearer ${cachedToken}`;
             }
         }
     } catch (error) {
-        console.warn('⚠️ Error obteniendo sesión para headers:', error);
+        // Silencioso - usará el apiKey por defecto
     }
 
     return headers;
+}
+
+// Limpiar cache de token (llamar en logout)
+export function clearTokenCache() {
+    cachedToken = null;
+    tokenExpiry = 0;
 }
 
 function isConfigured(): boolean {
