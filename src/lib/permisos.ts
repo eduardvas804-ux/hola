@@ -15,8 +15,7 @@ export type Seccion =
     | 'valorizaciones'
     | 'reportes'
     | 'historial'
-    | 'usuarios'
-    | 'operadores';
+    | 'usuarios';
 
 export type Permiso = 'ver' | 'crear' | 'editar' | 'eliminar' | 'exportar';
 
@@ -36,7 +35,6 @@ const PERMISOS: Record<Role, Record<Seccion, Permiso[]>> = {
         reportes: ['ver', 'exportar'],
         historial: ['ver'],
         usuarios: ['ver', 'crear', 'editar', 'eliminar'],
-        operadores: ['ver', 'crear', 'editar', 'eliminar', 'exportar'],
     },
     supervisor: {
         dashboard: ['ver'],
@@ -52,7 +50,6 @@ const PERMISOS: Record<Role, Record<Seccion, Permiso[]>> = {
         reportes: ['ver', 'exportar'],
         historial: ['ver'],
         usuarios: [],
-        operadores: ['ver', 'crear', 'editar', 'exportar'],
     },
     operador: {
         dashboard: ['ver'],
@@ -68,7 +65,6 @@ const PERMISOS: Record<Role, Record<Seccion, Permiso[]>> = {
         reportes: [],
         historial: [],
         usuarios: [],
-        operadores: ['ver'],
     },
     visualizador: {
         dashboard: ['ver'],
@@ -84,7 +80,6 @@ const PERMISOS: Record<Role, Record<Seccion, Permiso[]>> = {
         reportes: ['ver'],
         historial: [],
         usuarios: [],
-        operadores: ['ver'],
     },
 };
 
@@ -147,5 +142,4 @@ export const SECCIONES_INFO: Record<Seccion, { label: string; path: string }> = 
     reportes: { label: 'Reportes', path: '/reportes' },
     historial: { label: 'Historial', path: '/historial' },
     usuarios: { label: 'Usuarios', path: '/admin/usuarios' },
-    operadores: { label: 'Operadores', path: '/operadores' },
 };

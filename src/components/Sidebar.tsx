@@ -37,7 +37,7 @@ import {
 const menuItems: { href: string; label: string; icon: any; seccion: Seccion }[] = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard, seccion: 'dashboard' },
     { href: '/maquinaria', label: 'Maquinaria', icon: Truck, seccion: 'maquinaria' },
-    { href: '/operadores', label: 'Operadores', icon: HardHat, seccion: 'operadores' },
+
     { href: '/mantenimientos', label: 'Mantenimientos', icon: Wrench, seccion: 'mantenimientos' },
     { href: '/combustible', label: 'Combustible', icon: Fuel, seccion: 'combustible' },
     { href: '/soat', label: 'Control SOAT', icon: FileCheck, seccion: 'soat' },
