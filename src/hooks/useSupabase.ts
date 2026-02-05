@@ -22,11 +22,20 @@ interface TableTypeMap {
 interface CombustibleRecord {
     id: string;
     fecha: string;
+    tipo_movimiento: 'ENTRADA' | 'SALIDA';
+    fuente_combustible: 'CISTERNA' | 'GRIFO';
     codigo_maquina: string;
+    tipo_maquina?: string;
     galones: number;
-    horometro: number;
-    operador: string;
+    horometro?: number;
+    precio_galon?: number;
+    total?: number;
+    proveedor?: string;
+    nombre_grifo?: string;
+    numero_factura?: string;
+    operador?: string;
     observaciones?: string;
+    created_at?: string;
 }
 
 interface HistorialRecord {

@@ -187,3 +187,38 @@ export interface MaquinariaCompleta {
   // Filtros
   filtros?: Filtro;
 }
+
+// Tipos para módulo de combustible mejorado
+export type FuenteCombustible = 'CISTERNA' | 'GRIFO';
+export type TipoMovimientoCombustible = 'ENTRADA' | 'SALIDA';
+
+export interface RegistroCombustible {
+  id: string;
+  fecha: string;
+  tipo_movimiento: TipoMovimientoCombustible;
+  fuente_combustible: FuenteCombustible;
+  codigo_maquina: string;
+  tipo_maquina?: string;
+  horometro?: number;
+  galones: number;
+  precio_galon?: number;
+  total?: number;
+  proveedor?: string;
+  nombre_grifo?: string;
+  numero_factura?: string;
+  operador?: string;
+  observaciones?: string;
+  created_at?: string;
+}
+
+// Interface para cálculo de rendimiento
+export interface RendimientoMaquina {
+  codigo_maquina: string;
+  tipo_maquina?: string;
+  total_galones: number;
+  horometro_inicial: number;
+  horometro_final: number;
+  horas_trabajadas: number;
+  rendimiento_gal_hora: number;
+  registros_count: number;
+}
