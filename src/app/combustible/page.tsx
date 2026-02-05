@@ -1,4 +1,6 @@
 'use client';
+// Version Legacy Restored
+
 
 import { useState, useEffect } from 'react';
 import {
@@ -390,8 +392,8 @@ export default function CombustiblePage() {
                                             .filter(eq => {
                                                 const term = searchCodigo.toLowerCase();
                                                 return eq.codigo.toLowerCase().includes(term) ||
-                                                       eq.serie.toLowerCase().includes(term) ||
-                                                       eq.modelo.toLowerCase().includes(term);
+                                                    eq.serie.toLowerCase().includes(term) ||
+                                                    eq.modelo.toLowerCase().includes(term);
                                             })
                                             .map(eq => (
                                                 <button
@@ -477,11 +479,10 @@ export default function CombustiblePage() {
                                     <tr key={r.id} className={r.tipo_movimiento === 'ENTRADA' ? 'bg-green-50/50' : ''}>
                                         <td>{new Date(r.fecha).toLocaleDateString('es-PE')}</td>
                                         <td>
-                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                                r.tipo_movimiento === 'ENTRADA'
+                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${r.tipo_movimiento === 'ENTRADA'
                                                     ? 'bg-green-100 text-green-700'
                                                     : 'bg-amber-100 text-amber-700'
-                                            }`}>
+                                                }`}>
                                                 {r.tipo_movimiento === 'ENTRADA' ? '↓ Entrada' : '↑ Salida'}
                                             </span>
                                         </td>
