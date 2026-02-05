@@ -305,11 +305,10 @@ export default function CombustiblePage() {
 
     // Cálculo de rendimiento por máquina
     const rendimientoMaquinas = useMemo((): RendimientoMaquina[] => {
-        // Solo considerar despachos desde cisterna (consumo real)
-        // Excluir abastecimientos en grifo (son recargas, no consumo)
+        // Incluir TODAS las salidas de combustible (cisterna + grifo)
+        // Ambas fuentes representan consumo real de la máquina
         const salidas = registros.filter(r =>
             r.tipo_movimiento === 'SALIDA' &&
-            r.fuente_combustible === 'CISTERNA' &&  // Solo despachos de cisterna
             r.codigo_maquina !== 'CISTERNA' &&
             r.horometro && r.horometro > 0
         );
@@ -334,13 +333,22 @@ export default function CombustiblePage() {
 
             if (horas_trabajadas <= 0) return;
 
-            const total_galones = records.reduce((sum, r) => sum + r.galones, 0);
+            // Calcular galones por fuente
+            const galones_cisterna = records
+                .filter(r => r.fuente_combustible === 'CISTERNA')
+                .reduce((sum, r) => sum + r.galones, 0);
+            const galones_grifo = records
+                .filter(r => r.fuente_combustible === 'GRIFO')
+                .reduce((sum, r) => sum + r.galones, 0);
+            const total_galones = galones_cisterna + galones_grifo;
             const rendimiento_gal_hora = total_galones / horas_trabajadas;
 
             result.push({
                 codigo_maquina: codigo,
                 tipo_maquina: records[0].tipo_maquina,
                 total_galones,
+                galones_cisterna,
+                galones_grifo,
                 horometro_inicial,
                 horometro_final,
                 horas_trabajadas,
@@ -746,6 +754,8 @@ export default function CombustiblePage() {
                                             <th>Horómetro Inicial</th>
                                             <th>Horómetro Final</th>
                                             <th>Horas Trabajadas</th>
+                                            <th>Galones Cisterna 🛢️</th>
+                                            <th>Galones Grifo 🏪</th>
                                             <th>Total Galones</th>
                                             <th>Rendimiento</th>
                                             <th>Registros</th>
@@ -764,6 +774,12 @@ export default function CombustiblePage() {
                                                 <td>{formatNumber(r.horometro_inicial)}</td>
                                                 <td>{formatNumber(r.horometro_final)}</td>
                                                 <td className="font-medium">{formatNumber(r.horas_trabajadas)} hrs</td>
+                                                <td className="font-medium text-blue-600">
+                                                    {r.galones_cisterna > 0 ? `${formatNumber(r.galones_cisterna)} gal` : '-'}
+                                                </td>
+                                                <td className="font-medium text-purple-600">
+                                                    {r.galones_grifo > 0 ? `${formatNumber(r.galones_grifo)} gal` : '-'}
+                                                </td>
                                                 <td className="font-medium text-amber-600">{formatNumber(r.total_galones)} gal</td>
                                                 <td>
                                                     <div className="flex items-center gap-2">

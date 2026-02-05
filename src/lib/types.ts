@@ -216,6 +216,8 @@ export interface RendimientoMaquina {
   codigo_maquina: string;
   tipo_maquina?: string;
   total_galones: number;
+  galones_cisterna: number;    // Galones abastecidos desde cisterna
+  galones_grifo: number;       // Galones abastecidos en grifo/estación
   horometro_inicial: number;
   horometro_final: number;
   horas_trabajadas: number;
