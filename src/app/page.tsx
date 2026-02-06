@@ -24,7 +24,7 @@ import {
 } from 'chart.js';
 import { ICONOS_MAQUINARIA, TipoMaquinaria } from '@/lib/types';
 import { formatNumber } from '@/lib/utils';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserClient } from '@supabase/ssr';
 
 // Registrar Chart.js
 ChartJS.register(
@@ -54,7 +54,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    const supabase = createClientComponentClient();
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
 
     async function fetchData() {
       try {
