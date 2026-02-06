@@ -1,4 +1,5 @@
 import { createClient as createClientJS, SupabaseClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 
 let supabaseInstance: SupabaseClient | null = null;
 
@@ -26,18 +27,8 @@ export function createClient(): SupabaseClient | null {
     }
 
     try {
-        supabaseInstance = createClientJS(url!, key!, {
-            auth: {
-                persistSession: true,
-                autoRefreshToken: true,
-                detectSessionInUrl: true
-            },
-            global: {
-                headers: {
-                    'X-Client-Info': 'maquinaria-pro'
-                }
-            }
-        });
+        // Usar createBrowserClient para manejo automático de cookies/sesión
+        supabaseInstance = createBrowserClient(url!, key!);
         return supabaseInstance;
     } catch (error) {
         console.error('Error creando cliente Supabase:', error);
