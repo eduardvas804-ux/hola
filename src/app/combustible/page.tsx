@@ -76,7 +76,7 @@ export default function CombustiblePage() {
     const userRole = profile?.rol as Role;
 
     const emptyForm: Partial<RegistroCombustible> = {
-        fecha: new Date().toISOString().split('T')[0],
+        fecha: new Date().toLocaleDateString('en-CA'),
         tipo_movimiento: 'SALIDA',
         fuente_combustible: 'CISTERNA',
         codigo_maquina: '',
@@ -424,17 +424,17 @@ export default function CombustiblePage() {
                                 <Building2 className="text-purple-600" size={28} />
                             </div>
                             <div>
-                                <p className="text-sm font-medium text-gray-500">Gasto en Grifos</p>
-                                <p className="text-3xl font-bold text-purple-600">S/ {formatNumber(stats.gastoGrifos)}</p>
+                                <p className="text-sm font-medium text-gray-500">Gasto Total (Grifos + Cisterna)</p>
+                                <p className="text-3xl font-bold text-purple-600">S/ {formatNumber(stats.totalGastado)}</p>
                             </div>
                         </div>
                     </div>
                     <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between text-sm">
                         <span className="text-gray-600">
-                            {formatNumber(stats.totalSalidasGrifo)} galones en estaciones
+                            {formatNumber(stats.gastoGrifos)} en grifos / {formatNumber(stats.gastoCompraCisterna)} cisterna
                         </span>
                         <span className="text-purple-600">
-                            Total histórico acumulado
+                            Total acumulado
                         </span>
                     </div>
                 </div>
@@ -675,7 +675,7 @@ export default function CombustiblePage() {
                                     ) : (
                                         filteredRegistros.map((r) => (
                                             <tr key={r.id} className={r.tipo_movimiento === 'ENTRADA' ? 'bg-green-50/50' : ''}>
-                                                <td>{new Date(r.fecha).toLocaleDateString('es-PE')}</td>
+                                                <td>{r.fecha.split('T')[0].split('-').reverse().join('/')}</td>
                                                 <td>
                                                     <span className={`px-2 py-1 rounded-full text-xs font-bold ${r.tipo_movimiento === 'ENTRADA'
                                                         ? 'bg-green-100 text-green-700'
