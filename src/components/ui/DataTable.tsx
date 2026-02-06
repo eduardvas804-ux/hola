@@ -172,7 +172,7 @@ export default function DataTable<T extends Record<string, any>>({
 
             {/* Table */}
             <div className="overflow-x-auto">
-                <table className="data-table">
+                <table className="data-table table-card-view">
                     <thead className={stickyHeader ? 'sticky top-0 z-10' : ''}>
                         <tr>
                             {selectable && (
@@ -301,8 +301,8 @@ export default function DataTable<T extends Record<string, any>>({
                                         key={pageNum}
                                         onClick={() => setCurrentPage(pageNum)}
                                         className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === pageNum
-                                                ? 'bg-primary text-white'
-                                                : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                                            ? 'bg-primary text-white'
+                                            : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                                             }`}
                                         style={currentPage === pageNum ? { background: 'var(--primary)' } : {}}
                                     >

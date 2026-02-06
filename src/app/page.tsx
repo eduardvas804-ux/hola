@@ -461,7 +461,7 @@ export default function Dashboard() {
           <h2 className="text-lg font-bold text-gray-800">Resumen de Equipos (Top 10)</h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="data-table">
+          <table className="data-table table-card-view">
             <thead>
               <tr>
                 <th>Código</th>

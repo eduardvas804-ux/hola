@@ -384,7 +384,7 @@ export default function SOATPage() {
             {/* Tabla */}
             <div className="card overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="data-table">
+                    <table className="data-table table-card-view">
                         <thead>
                             <tr>
                                 <th>Código</th>

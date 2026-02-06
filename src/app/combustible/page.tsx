@@ -654,7 +654,7 @@ export default function CombustiblePage() {
 
                         {/* Tabla */}
                         <div className="overflow-x-auto">
-                            <table className="data-table">
+                            <table className="data-table table-card-view">
                                 <thead>
                                     <tr>
                                         <th>Fecha</th>
@@ -746,7 +746,7 @@ export default function CombustiblePage() {
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
-                                <table className="data-table">
+                                <table className="data-table table-card-view">
                                     <thead>
                                         <tr>
                                             <th>Equipo</th>

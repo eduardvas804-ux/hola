@@ -500,7 +500,7 @@ export default function MaquinariaPage() {
             {/* Table */}
             <div className="card overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="data-table">
+                    <table className="data-table table-card-view">
                         <thead>
                             <tr>
                                 <th className="w-10">
