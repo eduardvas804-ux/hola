@@ -372,10 +372,9 @@ export async function getEquiposVinculados(identificador: string): Promise<{
 
     try {
         // Buscar primero en maquinaria por código o serie
-        // Aqui fetchTable(maquinaria) usar getHeadersWithAuth lo cual esta bien.
         const maquinarias = await fetchTable<any>('maquinaria');
         const maquinaria = maquinarias.find(m =>
-            m.codigo === identificador || m.serie === identificador
+            m.codigo === identificador || m.serie === identificador || m.placa === identificador
         );
 
         if (!maquinaria) {
@@ -383,13 +382,35 @@ export async function getEquiposVinculados(identificador: string): Promise<{
         }
 
         const codigo = maquinaria.codigo;
+        const serie = maquinaria.serie || '';
+        const placa = maquinaria.placa || '';
+
+        // Construir query OR para buscar por código O serie O placa
+        // Nota: Filtros usa 'maquinaria_codigo', las otras usan 'codigo' o 'placa_serie'
+
+        // Para SOAT y CITV, buscamos coincidencia en codigo O en placa_serie
+        // La sintaxis de Supabase PostgREST para OR es: variables.or.filter1,filter2
+        // Pero fetchTable añade select=*, asi que pasamos el filtro en query arg
+
+        const searchTerms = [
+            `codigo.eq.${codigo}`,
+            serie ? `placa_serie.eq.${serie}` : null,
+            placa ? `placa_serie.eq.${placa}` : null,
+            serie ? `codigo.eq.${serie}` : null // A veces ponen la serie en el codigo del soat
+        ].filter(Boolean).join(',');
+
+        const orQuery = `&or=(${searchTerms})`;
+
+        // Para mantenimientos y filtros es mas estricto con el codigo de maquina generalmente
+        const mtoQuery = `&codigo_maquina=eq.${codigo}`;
+        const filtrosQuery = `&maquinaria_codigo=eq.${codigo}`;
 
         // Obtener datos relacionados en paralelo
         const [mantenimientos, soats, citvs, filtrosArr] = await Promise.all([
-            fetchTable<any>('mantenimientos', `&codigo_maquina=eq.${codigo}`),
-            fetchTable<any>('soat', `&codigo=eq.${codigo}`),
-            fetchTable<any>('citv', `&codigo=eq.${codigo}`),
-            fetchTable<any>('filtros', `&maquinaria_codigo=eq.${codigo}`)
+            fetchTable<any>('mantenimientos', mtoQuery),
+            fetchTable<any>('soat', orQuery),
+            fetchTable<any>('citv', orQuery),
+            fetchTable<any>('filtros', filtrosQuery)
         ]);
 
         return {

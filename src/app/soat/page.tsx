@@ -87,13 +87,21 @@ export default function SOATPage() {
 
     function openEditModal(item: SOAT) {
         setEditingItem(item);
+
+        // Formatear fecha para el input type="date" (YYYY-MM-DD)
+        let fechaFormatted = '';
+        if (item.fecha_vencimiento) {
+            // Si viene ISO completa (2025-10-21T00:00:00...) cortamos
+            fechaFormatted = item.fecha_vencimiento.split('T')[0];
+        }
+
         setFormData({
             codigo: item.codigo || '',
             tipo: item.tipo || '',
             modelo: item.modelo || '',
             placa_serie: item.placa_serie || '',
             empresa: item.empresa || 'JORGE LUIS VASQUEZ CUSMA',
-            fecha_vencimiento: item.fecha_vencimiento || ''
+            fecha_vencimiento: fechaFormatted
         });
         setShowModal(true);
     }
@@ -117,10 +125,13 @@ export default function SOATPage() {
             return;
         }
 
+        console.log('Saving SOAT data:', formData);
+
         try {
             if (editingItem) {
                 const result = await updateRowWithResult('soat', editingItem.id, formData);
                 if (!result.success) {
+                    console.error('Update failed:', result.error);
                     toast.error(result.error || 'Error al actualizar');
                     return;
                 }
@@ -128,6 +139,7 @@ export default function SOATPage() {
             } else {
                 const result = await insertRowWithResult('soat', formData);
                 if (!result.success) {
+                    console.error('Insert failed:', result.error);
                     toast.error(result.error || 'Error al agregar');
                     return;
                 }
@@ -137,8 +149,8 @@ export default function SOATPage() {
             setShowModal(false);
             fetchData();
         } catch (error) {
-            console.error('Error:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Error al guardar';
+            console.error('Error catch:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Error interno al guardar';
             toast.error(errorMessage);
         }
     }
@@ -312,8 +324,8 @@ export default function SOATPage() {
                                             .filter(eq => {
                                                 const term = searchCodigo.toLowerCase();
                                                 return eq.codigo.toLowerCase().includes(term) ||
-                                                       eq.serie.toLowerCase().includes(term) ||
-                                                       eq.modelo.toLowerCase().includes(term);
+                                                    eq.serie.toLowerCase().includes(term) ||
+                                                    eq.modelo.toLowerCase().includes(term);
                                             })
                                             .map(eq => (
                                                 <button
@@ -373,16 +385,15 @@ export default function SOATPage() {
                                         <td>{s.placa_serie}</td>
                                         <td>{formatDate(s.fecha_vencimiento)}</td>
                                         <td>
-                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                                s.dias_restantes < 0 ? 'bg-red-100 text-red-800' :
-                                                s.dias_restantes <= 7 ? 'bg-orange-100 text-orange-800' :
-                                                s.dias_restantes <= 30 ? 'bg-amber-100 text-amber-800' :
-                                                'bg-green-100 text-green-800'
-                                            }`}>
+                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${s.dias_restantes < 0 ? 'bg-red-100 text-red-800' :
+                                                    s.dias_restantes <= 7 ? 'bg-orange-100 text-orange-800' :
+                                                        s.dias_restantes <= 30 ? 'bg-amber-100 text-amber-800' :
+                                                            'bg-green-100 text-green-800'
+                                                }`}>
                                                 {s.dias_restantes < 0 ? 'VENCIDO' :
-                                                 s.dias_restantes <= 7 ? `${s.dias_restantes}d - URGENTE` :
-                                                 s.dias_restantes <= 30 ? `${s.dias_restantes}d - PRÓXIMO` :
-                                                 `${s.dias_restantes}d`}
+                                                    s.dias_restantes <= 7 ? `${s.dias_restantes}d - URGENTE` :
+                                                        s.dias_restantes <= 30 ? `${s.dias_restantes}d - PRÓXIMO` :
+                                                            `${s.dias_restantes}d`}
                                             </span>
                                         </td>
                                         <td>
