@@ -22,7 +22,8 @@ import { formatDate, calcularAlertaDocumento } from '@/lib/utils';
 import { exportToExcel, formatSoatForExport } from '@/lib/export';
 import { useAuth } from '@/components/auth-provider';
 import { puedeVer, puedeEditar, puedeExportar, puedeCrear, puedeEliminar } from '@/lib/permisos';
-import { Role, SOAT } from '@/lib/types';
+
+import { Role, SOAT, Maquinaria } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { EQUIPOS_MAESTRO } from '@/lib/equipos-data';
 import { useToast } from '@/components/toast-provider';
@@ -30,6 +31,7 @@ import EquipoInfoCard from '@/components/equipo-info-card';
 
 export default function SOATPage() {
     const [soat, setSoat] = useState<SOAT[]>([]);
+    const [equiposList, setEquiposList] = useState<Maquinaria[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingItem, setEditingItem] = useState<SOAT | null>(null);
@@ -70,8 +72,18 @@ export default function SOATPage() {
                 return;
             }
 
+
             const data = await fetchTable<SOAT>('soat', '&order=fecha_vencimiento');
             setSoat(data || []);
+
+            // Cargar lista de maquinaria para el dropdown
+            const maquinariaData = await fetchTable<Maquinaria>('maquinaria', '&order=codigo');
+            if (maquinariaData && maquinariaData.length > 0) {
+                setEquiposList(maquinariaData);
+            } else {
+                // Fallback a lista estática si no hay datos en DB
+                console.warn('No se encontró maquinaria en DB, usando lista estática');
+            }
         } catch (error) {
             console.error('Error:', error);
         } finally {
@@ -107,6 +119,21 @@ export default function SOATPage() {
     }
 
     function handleEquipoChange(codigo: string) {
+        // Buscar primero en la lista cargada de BD
+        const equipoBD = equiposList.find(e => e.codigo === codigo);
+
+        if (equipoBD) {
+            setFormData({
+                ...formData,
+                codigo: equipoBD.codigo,
+                tipo: equipoBD.tipo,
+                modelo: equipoBD.modelo,
+                placa_serie: equipoBD.serie // En BD 'serie' suele guardar la placa o serie
+            });
+            return;
+        }
+
+        // Fallback a lista estática
         const equipo = EQUIPOS_MAESTRO.find(e => e.codigo === codigo);
         if (equipo) {
             setFormData({
@@ -386,9 +413,9 @@ export default function SOATPage() {
                                         <td>{formatDate(s.fecha_vencimiento)}</td>
                                         <td>
                                             <span className={`px-2 py-1 rounded-full text-xs font-bold ${s.dias_restantes < 0 ? 'bg-red-100 text-red-800' :
-                                                    s.dias_restantes <= 7 ? 'bg-orange-100 text-orange-800' :
-                                                        s.dias_restantes <= 30 ? 'bg-amber-100 text-amber-800' :
-                                                            'bg-green-100 text-green-800'
+                                                s.dias_restantes <= 7 ? 'bg-orange-100 text-orange-800' :
+                                                    s.dias_restantes <= 30 ? 'bg-amber-100 text-amber-800' :
+                                                        'bg-green-100 text-green-800'
                                                 }`}>
                                                 {s.dias_restantes < 0 ? 'VENCIDO' :
                                                     s.dias_restantes <= 7 ? `${s.dias_restantes}d - URGENTE` :
@@ -447,11 +474,20 @@ export default function SOATPage() {
                                     onChange={(e) => handleEquipoChange(e.target.value)}
                                 >
                                     <option value="">Seleccionar...</option>
-                                    {EQUIPOS_MAESTRO.map(eq => (
-                                        <option key={eq.codigo} value={eq.codigo}>
-                                            {eq.codigo} - {eq.tipo} {eq.modelo} ({eq.serie})
-                                        </option>
-                                    ))}
+                                    <option value="">Seleccionar...</option>
+                                    {equiposList.length > 0 ? (
+                                        equiposList.map(eq => (
+                                            <option key={eq.id} value={eq.codigo}>
+                                                {eq.codigo} - {eq.tipo} {eq.modelo} ({eq.serie})
+                                            </option>
+                                        ))
+                                    ) : (
+                                        EQUIPOS_MAESTRO.map(eq => (
+                                            <option key={eq.codigo} value={eq.codigo}>
+                                                {eq.codigo} - {eq.tipo} {eq.modelo} ({eq.serie})
+                                            </option>
+                                        ))
+                                    )}
                                 </select>
                             </div>
 
@@ -460,18 +496,18 @@ export default function SOATPage() {
                                     <label className="label">Tipo</label>
                                     <input
                                         type="text"
-                                        className="input bg-gray-50"
+                                        className="input"
                                         value={formData.tipo}
-                                        readOnly
+                                        onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
                                     />
                                 </div>
                                 <div>
                                     <label className="label">Modelo</label>
                                     <input
                                         type="text"
-                                        className="input bg-gray-50"
+                                        className="input"
                                         value={formData.modelo}
-                                        readOnly
+                                        onChange={(e) => setFormData({ ...formData, modelo: e.target.value })}
                                     />
                                 </div>
                             </div>
@@ -480,9 +516,9 @@ export default function SOATPage() {
                                 <label className="label">Placa / Serie</label>
                                 <input
                                     type="text"
-                                    className="input bg-gray-50"
+                                    className="input"
                                     value={formData.placa_serie}
-                                    readOnly
+                                    onChange={(e) => setFormData({ ...formData, placa_serie: e.target.value })}
                                 />
                             </div>
 

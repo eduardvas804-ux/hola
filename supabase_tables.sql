@@ -123,12 +123,13 @@ CREATE POLICY "Admins pueden eliminar" ON mantenimientos FOR DELETE USING (
 );
 
 
--- 4. TABLA DE COMBUSTIBLE
+-- 4. TABLA DE COMBUSTIBLE (V3 - Con fuente_combustible)
 -- =============================================
 CREATE TABLE IF NOT EXISTS combustible (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     fecha DATE NOT NULL DEFAULT CURRENT_DATE,
     tipo_movimiento TEXT NOT NULL CHECK (tipo_movimiento IN ('ENTRADA', 'SALIDA')),
+    fuente_combustible TEXT NOT NULL DEFAULT 'CISTERNA' CHECK (fuente_combustible IN ('CISTERNA', 'GRIFO')),
     codigo_maquina TEXT NOT NULL,
     tipo_maquina TEXT,
     horometro NUMERIC,
@@ -136,6 +137,7 @@ CREATE TABLE IF NOT EXISTS combustible (
     precio_galon NUMERIC,
     total NUMERIC,
     proveedor TEXT,
+    nombre_grifo TEXT,  -- Nombre del grifo (cuando fuente_combustible = 'GRIFO')
     numero_factura TEXT,
     operador TEXT,
     observaciones TEXT,
@@ -319,6 +321,7 @@ CREATE INDEX IF NOT EXISTS idx_mantenimientos_codigo ON mantenimientos(codigo_ma
 CREATE INDEX IF NOT EXISTS idx_combustible_fecha ON combustible(fecha);
 CREATE INDEX IF NOT EXISTS idx_combustible_tipo ON combustible(tipo_movimiento);
 CREATE INDEX IF NOT EXISTS idx_combustible_codigo ON combustible(codigo_maquina);
+CREATE INDEX IF NOT EXISTS idx_combustible_fuente ON combustible(fuente_combustible);
 CREATE INDEX IF NOT EXISTS idx_soat_vencimiento ON soat(fecha_vencimiento);
 CREATE INDEX IF NOT EXISTS idx_citv_vencimiento ON citv(fecha_vencimiento);
 CREATE INDEX IF NOT EXISTS idx_historial_tabla ON historial(tabla);

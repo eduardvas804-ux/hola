@@ -18,17 +18,19 @@ import {
     RefreshCw
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
+import { fetchTable } from '@/lib/api';
 import { formatDate, calcularAlertaDocumento } from '@/lib/utils';
 import { exportToExcel } from '@/lib/export';
 import { useAuth } from '@/components/auth-provider';
 import { puedeVer, puedeEditar, puedeExportar, puedeCrear, puedeEliminar } from '@/lib/permisos';
-import { Role, CITV } from '@/lib/types';
+import { Role, CITV, Maquinaria } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { EQUIPOS_MAESTRO } from '@/lib/equipos-data';
 import EquipoInfoCard from '@/components/equipo-info-card';
 
 export default function CITVPage() {
     const [citv, setCitv] = useState<CITV[]>([]);
+    const [equiposList, setEquiposList] = useState<Maquinaria[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingItem, setEditingItem] = useState<CITV | null>(null);
@@ -82,6 +84,12 @@ export default function CITVPage() {
             } else {
                 setCitv(data || []);
             }
+
+            // Cargar lista de maquinaria para el dropdown
+            const maquinariaData = await fetchTable<Maquinaria>('maquinaria', '&order=codigo');
+            if (maquinariaData && maquinariaData.length > 0) {
+                setEquiposList(maquinariaData);
+            }
         } catch (error) {
             console.error('Error:', error);
         } finally {
@@ -109,6 +117,20 @@ export default function CITVPage() {
     }
 
     function handleEquipoChange(codigo: string) {
+        // Buscar primero en la lista cargada de BD
+        const equipoBD = equiposList.find(e => e.codigo === codigo);
+
+        if (equipoBD) {
+            setFormData({
+                ...formData,
+                codigo: equipoBD.codigo,
+                tipo: equipoBD.tipo,
+                modelo: equipoBD.modelo,
+                placa_serie: equipoBD.serie
+            });
+            return;
+        }
+
         const equipo = EQUIPOS_MAESTRO.find(e => e.codigo === codigo);
         if (equipo) {
             setFormData({
@@ -410,9 +432,9 @@ export default function CITVPage() {
                                         <td>{formatDate(c.fecha_vencimiento)}</td>
                                         <td>
                                             <span className={`px-2 py-1 rounded-full text-xs font-bold ${c.dias_restantes < 0 ? 'bg-red-100 text-red-800' :
-                                                    c.dias_restantes <= 7 ? 'bg-orange-100 text-orange-800' :
-                                                        c.dias_restantes <= 30 ? 'bg-amber-100 text-amber-800' :
-                                                            'bg-green-100 text-green-800'
+                                                c.dias_restantes <= 7 ? 'bg-orange-100 text-orange-800' :
+                                                    c.dias_restantes <= 30 ? 'bg-amber-100 text-amber-800' :
+                                                        'bg-green-100 text-green-800'
                                                 }`}>
                                                 {c.dias_restantes < 0 ? 'VENCIDO' :
                                                     c.dias_restantes <= 7 ? `${c.dias_restantes}d - URGENTE` :
@@ -471,11 +493,20 @@ export default function CITVPage() {
                                     onChange={(e) => handleEquipoChange(e.target.value)}
                                 >
                                     <option value="">Seleccionar...</option>
-                                    {EQUIPOS_MAESTRO.map(eq => (
-                                        <option key={eq.codigo} value={eq.codigo}>
-                                            {eq.codigo} - {eq.tipo} {eq.modelo} ({eq.serie})
-                                        </option>
-                                    ))}
+                                    <option value="">Seleccionar...</option>
+                                    {equiposList.length > 0 ? (
+                                        equiposList.map(eq => (
+                                            <option key={eq.id} value={eq.codigo}>
+                                                {eq.codigo} - {eq.tipo} {eq.modelo} ({eq.serie})
+                                            </option>
+                                        ))
+                                    ) : (
+                                        EQUIPOS_MAESTRO.map(eq => (
+                                            <option key={eq.codigo} value={eq.codigo}>
+                                                {eq.codigo} - {eq.tipo} {eq.modelo} ({eq.serie})
+                                            </option>
+                                        ))
+                                    )}
                                 </select>
                             </div>
 
@@ -484,18 +515,18 @@ export default function CITVPage() {
                                     <label className="label">Tipo</label>
                                     <input
                                         type="text"
-                                        className="input bg-gray-50"
+                                        className="input"
                                         value={formData.tipo}
-                                        readOnly
+                                        onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
                                     />
                                 </div>
                                 <div>
                                     <label className="label">Modelo</label>
                                     <input
                                         type="text"
-                                        className="input bg-gray-50"
+                                        className="input"
                                         value={formData.modelo}
-                                        readOnly
+                                        onChange={(e) => setFormData({ ...formData, modelo: e.target.value })}
                                     />
                                 </div>
                             </div>
@@ -504,9 +535,9 @@ export default function CITVPage() {
                                 <label className="label">Placa / Serie</label>
                                 <input
                                     type="text"
-                                    className="input bg-gray-50"
+                                    className="input"
                                     value={formData.placa_serie}
-                                    readOnly
+                                    onChange={(e) => setFormData({ ...formData, placa_serie: e.target.value })}
                                 />
                             </div>
 

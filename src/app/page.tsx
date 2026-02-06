@@ -24,6 +24,7 @@ import {
 } from 'chart.js';
 import { ICONOS_MAQUINARIA, TipoMaquinaria } from '@/lib/types';
 import { formatNumber } from '@/lib/utils';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 // Registrar Chart.js
 ChartJS.register(
@@ -36,109 +37,164 @@ ChartJS.register(
   Legend
 );
 
-// Datos de demo para cuando no hay Supabase configurado
-const DEMO_DATA = {
-  maquinaria: [
-    { id: '1', codigo: 'EXC-01', tipo: 'EXCAVADORA', modelo: '320D', marca: 'CATERPILLAR', estado: 'OPERATIVO', horas_actuales: 15612 },
-    { id: '2', codigo: 'MOT-01', tipo: 'MOTONIVELADORA', modelo: '135H', marca: 'CATERPILLAR', estado: 'OPERATIVO', horas_actuales: 12450 },
-    { id: '3', codigo: 'CAR-01', tipo: 'CARGADOR FRONTAL', modelo: '950H', marca: 'CATERPILLAR', estado: 'EN MANTENIMIENTO', horas_actuales: 8900 },
-    { id: '4', codigo: 'VOL-01', tipo: 'VOLQUETE', modelo: 'ACTROS', marca: 'MERCEDES BENZ', estado: 'OPERATIVO', horas_actuales: 45000 },
-    { id: '5', codigo: 'CIST-01', tipo: 'CISTERNA DE AGUA', modelo: 'FM', marca: 'VOLVO', estado: 'OPERATIVO', horas_actuales: 23500 },
-    { id: '6', codigo: 'ROD-01', tipo: 'RODILLO LISO', modelo: 'CS-533E', marca: 'CATERPILLAR', estado: 'INOPERATIVO', horas_actuales: 5600 },
-    { id: '7', codigo: 'RET-01', tipo: 'RETROEXCAVADORA', modelo: '420F', marca: 'CATERPILLAR', estado: 'OPERATIVO', horas_actuales: 9800 },
-    { id: '8', codigo: 'CAM-01', tipo: 'CAMIONETA', modelo: 'RANGER', marca: 'FORD', estado: 'ALQUILADO', horas_actuales: 120000 },
-  ],
-  mantenimientos: [
-    { codigo_maquina: 'EXC-01', diferencia_horas: 30, estado_alerta: 'URGENTE' },
-    { codigo_maquina: 'MOT-01', diferencia_horas: 75, estado_alerta: 'PROXIMO' },
-    { codigo_maquina: 'CAR-01', diferencia_horas: 0, estado_alerta: 'VENCIDO' },
-    { codigo_maquina: 'VOL-01', diferencia_horas: 180, estado_alerta: 'EN REGLA' },
-  ],
-  soat: [
-    { codigo: 'VOL-01', fecha_vencimiento: '2026-02-10', dias_restantes: 13 },
-    { codigo: 'CAM-01', fecha_vencimiento: '2026-02-05', dias_restantes: 8 },
-    { codigo: 'CIST-01', fecha_vencimiento: '2026-04-15', dias_restantes: 77 },
-  ],
-  citv: [
-    { codigo: 'VOL-01', fecha_vencimiento: '2026-02-20', dias_restantes: 23 },
-    { codigo: 'CIST-01', fecha_vencimiento: '2026-05-15', dias_restantes: 107 },
-  ],
-};
-
 export default function Dashboard() {
-  const [maquinaria, setMaquinaria] = useState<any[]>(DEMO_DATA.maquinaria);
-  const [mantenimientos, setMantenimientos] = useState<any[]>(DEMO_DATA.mantenimientos);
-  const [soat, setSoat] = useState<any[]>(DEMO_DATA.soat);
-  const [citv, setCitv] = useState<any[]>(DEMO_DATA.citv);
-  const [loading, setLoading] = useState(false);
-  const [usingDemo, setUsingDemo] = useState(true);
+  const [stats, setStats] = useState({
+    total: 0,
+    operativo: 0,
+    mantenimiento: 0,
+    inoperativo: 0,
+    alquilado: 0,
+    horasPromedio: 0,
+  });
+  const [alertasUrgentes, setAlertasUrgentes] = useState<any[]>([]);
+  const [topEquipos, setTopEquipos] = useState<any[]>([]);
+  const [tiposCounts, setTiposCounts] = useState<Record<string, number>>({});
+  const [resumenEquipos, setResumenEquipos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+    const supabase = createClientComponentClient();
 
     async function fetchData() {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const apiKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-      // Si no hay configuración, mantener datos de demo
-      if (!supabaseUrl || !apiKey) {
-        console.warn('⚠️ Variables de Supabase no configuradas, usando datos de demo');
-        setLoading(false);
-        return;
-      }
-
-      const url = `${supabaseUrl}/rest/v1`;
-      const headers: HeadersInit = { 'apikey': apiKey, 'Authorization': `Bearer ${apiKey}` };
-
       try {
-        // Cargar todos los datos en paralelo
-        const [maqRes, mttoRes, soatRes, citvRes] = await Promise.all([
-          fetch(`${url}/maquinaria?select=*&order=item`, { headers }),
-          fetch(`${url}/mantenimientos?select=*`, { headers }),
-          fetch(`${url}/soat?select=*`, { headers }),
-          fetch(`${url}/citv?select=*`, { headers })
+        const today = new Date();
+        const dateIn15Days = new Date();
+        dateIn15Days.setDate(today.getDate() + 15);
+        const iso15Days = dateIn15Days.toISOString().split('T')[0];
+
+        // 1. Estadísticas Generales (Counts)
+        // Usamos head:true y count:exact para evitar descargar datos, solo contar
+        const pTotal = supabase.from('maquinaria').select('*', { count: 'exact', head: true });
+        const pOperativo = supabase.from('maquinaria').select('*', { count: 'exact', head: true }).eq('estado', 'OPERATIVO');
+        const pMantenimiento = supabase.from('maquinaria').select('*', { count: 'exact', head: true }).eq('estado', 'EN MANTENIMIENTO');
+        const pInoperativo = supabase.from('maquinaria').select('*', { count: 'exact', head: true }).eq('estado', 'INOPERATIVO');
+        const pAlquilado = supabase.from('maquinaria').select('*', { count: 'exact', head: true }).eq('estado', 'ALQUILADO');
+
+        // 2. Horas Promedio (Usamos RPC si existiera, o traemos solo la columna horas)
+        // Para optimizar, traemos solo horas_actuales
+        const pHoras = supabase.from('maquinaria').select('horas_actuales');
+
+        // 3. Alertas Urgentes - Mantenimientos
+        // Filtramos directamente en BD
+        const pAlertasMtto = supabase
+          .from('mantenimientos')
+          .select('id, codigo_maquina, diferencia_horas, estado_alerta')
+          .or('estado_alerta.eq.URGENTE,estado_alerta.eq.VENCIDO');
+
+        // 4. SOAT por Vencer (próximos 15 días o vencidos)
+        const pSoat = supabase
+          .from('soat')
+          .select('id, codigo, fecha_vencimiento')
+          .lt('fecha_vencimiento', iso15Days)
+          .order('fecha_vencimiento', { ascending: true });
+
+        // 5. CITV por Vencer (próximos 15 días o vencidos)
+        const pCitv = supabase
+          .from('citv')
+          .select('id, codigo, fecha_vencimiento')
+          .lt('fecha_vencimiento', iso15Days)
+          .order('fecha_vencimiento', { ascending: true });
+
+        // 6. Datos para Gráficos
+        // Top 10 Equipos por horas
+        const pTop10 = supabase
+          .from('maquinaria')
+          .select('codigo, horas_actuales')
+          .order('horas_actuales', { ascending: false })
+          .limit(10);
+
+        // Conteo por tipos
+        const pTipos = supabase.from('maquinaria').select('tipo');
+
+        // 7. Resumen Equipos (Tabla Pequeña - Top 10 recientes o por ID)
+        const pResumen = supabase
+          .from('maquinaria')
+          .select('id, codigo, tipo, modelo, marca, horas_actuales, estado')
+          .order('codigo', { ascending: true })
+          .limit(10);
+
+        // Ejecutar todo en paralelo
+        const [
+          resTotal, resOperativo, resMtto, resInop, resAlqu,
+          resHoras, resAlertasMtto, resSoat, resCitv,
+          resTop10, resTipos, resResumen
+        ] = await Promise.all([
+          pTotal, pOperativo, pMantenimiento, pInoperativo, pAlquilado,
+          pHoras, pAlertasMtto, pSoat, pCitv,
+          pTop10, pTipos, pResumen
         ]);
 
         if (cancelled) return;
 
-        if (maqRes.ok) {
-          const data = await maqRes.json();
-          if (data?.length > 0) {
-            setMaquinaria(data);
-            setUsingDemo(false);
-            console.log('✅ Datos cargados:', data.length, 'equipos');
-          }
-        }
+        // Procesar Stats
+        const horasData = resHoras.data || [];
+        const totalHoras = horasData.reduce((acc: number, curr: any) => acc + (curr.horas_actuales || 0), 0);
+        const promedio = horasData.length > 0 ? Math.round(totalHoras / horasData.length) : 0;
 
-        if (mttoRes.ok) setMantenimientos(await mttoRes.json());
-        if (soatRes.ok) setSoat(await soatRes.json());
-        if (citvRes.ok) setCitv(await citvRes.json());
+        setStats({
+          total: resTotal.count || 0,
+          operativo: resOperativo.count || 0,
+          mantenimiento: resMtto.count || 0,
+          inoperativo: resInop.count || 0,
+          alquilado: resAlqu.count || 0,
+          horasPromedio: promedio,
+        });
 
-      } catch (err) {
-        console.error('Error:', err);
+        // Procesar Alertas
+        const alertasCombinadas = [
+          ...(resAlertasMtto.data || []).map((m: any) => ({
+            tipo: 'mantenimiento',
+            codigo: m.codigo_maquina,
+            mensaje: m.estado_alerta === 'VENCIDO' ? '⛔ MANTENIMIENTO VENCIDO' : `🔴 Mantenimiento en ${m.diferencia_horas}h`,
+            urgencia: m.estado_alerta === 'VENCIDO' ? 0 : 1
+          })),
+          ...(resSoat.data || []).map((s: any) => {
+            const dias = calcularDiasRestantes(s.fecha_vencimiento);
+            return {
+              tipo: 'soat',
+              codigo: s.codigo,
+              mensaje: dias <= 0 ? '⛔ SOAT VENCIDO' : `🔴 SOAT vence en ${dias} días`,
+              urgencia: dias <= 0 ? 0 : (dias <= 7 ? 1 : 2)
+            };
+          }),
+          ...(resCitv.data || []).map((c: any) => {
+            const dias = calcularDiasRestantes(c.fecha_vencimiento);
+            return {
+              tipo: 'citv',
+              codigo: c.codigo,
+              mensaje: dias <= 0 ? '⛔ CITV VENCIDO' : `🔴 CITV vence en ${dias} días`,
+              urgencia: dias <= 0 ? 0 : (dias <= 7 ? 1 : 2)
+            };
+          })
+        ].sort((a, b) => a.urgencia - b.urgencia);
+        setAlertasUrgentes(alertasCombinadas);
+
+        // Procesar Gráficos
+        setTopEquipos(resTop10.data || []);
+
+        const counts: Record<string, number> = {};
+        (resTipos.data || []).forEach((item: any) => {
+          counts[item.tipo] = (counts[item.tipo] || 0) + 1;
+        });
+        setTiposCounts(counts);
+
+        setResumenEquipos(resResumen.data || []);
+
+      } catch (error) {
+        console.error('Error cargando dashboard:', error);
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
 
     fetchData();
+
     return () => { cancelled = true; };
   }, []);
 
-  // Calcular estadísticas
-  const stats = {
-    total: maquinaria.length,
-    operativo: maquinaria.filter(m => m.estado === 'OPERATIVO').length,
-    mantenimiento: maquinaria.filter(m => m.estado === 'EN MANTENIMIENTO').length,
-    inoperativo: maquinaria.filter(m => m.estado === 'INOPERATIVO').length,
-    alquilado: maquinaria.filter(m => m.estado === 'ALQUILADO').length,
-  };
-
-  const disponibilidad = ((stats.operativo + stats.alquilado) / stats.total * 100).toFixed(1);
-
-  // Función para calcular días restantes dinámicamente
   const calcularDiasRestantes = (fechaVencimiento: string | null): number => {
-    if (!fechaVencimiento) return 999; // Sin fecha = no urgente
+    if (!fechaVencimiento) return 999;
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     const vencimiento = new Date(fechaVencimiento);
@@ -147,71 +203,21 @@ export default function Dashboard() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // Alertas urgentes - calculando días restantes dinámicamente
-  const alertasUrgentes = [
-    ...mantenimientos
-      .filter(m => m.estado_alerta === 'URGENTE' || m.estado_alerta === 'VENCIDO')
-      .map(m => ({
-        tipo: 'mantenimiento',
-        codigo: m.codigo_maquina,
-        mensaje: m.estado_alerta === 'VENCIDO'
-          ? `⛔ MANTENIMIENTO VENCIDO`
-          : `🔴 Mantenimiento en ${m.diferencia_horas}h`,
-        urgencia: m.estado_alerta === 'VENCIDO' ? 0 : 1,
-      })),
-    ...soat
-      .map(s => ({ ...s, dias_calc: calcularDiasRestantes(s.fecha_vencimiento) }))
-      .filter(s => s.dias_calc <= 15)
-      .map(s => ({
-        tipo: 'soat',
-        codigo: s.codigo,
-        mensaje: s.dias_calc <= 0
-          ? `⛔ SOAT VENCIDO`
-          : `🔴 SOAT vence en ${s.dias_calc} días`,
-        urgencia: s.dias_calc <= 0 ? 0 : (s.dias_calc <= 7 ? 1 : 2),
-      })),
-    ...citv
-      .map(c => ({ ...c, dias_calc: calcularDiasRestantes(c.fecha_vencimiento) }))
-      .filter(c => c.dias_calc <= 15)
-      .map(c => ({
-        tipo: 'citv',
-        codigo: c.codigo,
-        mensaje: c.dias_calc <= 0
-          ? `⛔ CITV VENCIDO`
-          : `🔴 CITV vence en ${c.dias_calc} días`,
-        urgencia: c.dias_calc <= 0 ? 0 : (c.dias_calc <= 7 ? 1 : 2),
-      })),
-  ].sort((a, b) => a.urgencia - b.urgencia);
-
-  // Datos para gráfico de dona
-  const tiposCounts = maquinaria.reduce((acc, m) => {
-    acc[m.tipo] = (acc[m.tipo] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  const disponibilidad = stats.total > 0
+    ? ((stats.operativo + stats.alquilado) / stats.total * 100).toFixed(1)
+    : '0';
 
   const doughnutData = {
     labels: Object.keys(tiposCounts),
     datasets: [{
       data: Object.values(tiposCounts),
       backgroundColor: [
-        '#1E3A5F',
-        '#2E7D32',
-        '#F9A825',
-        '#C62828',
-        '#1565C0',
-        '#7c3aed',
-        '#0891b2',
-        '#be185d',
-        '#78716c',
+        '#1E3A5F', '#2E7D32', '#F9A825', '#C62828', '#1565C0',
+        '#7c3aed', '#0891b2', '#be185d', '#78716c',
       ],
       borderWidth: 0,
     }],
   };
-
-  // Datos para gráfico de barras (Top 10 equipos por horas)
-  const topEquipos = [...maquinaria]
-    .sort((a, b) => b.horas_actuales - a.horas_actuales)
-    .slice(0, 10);
 
   const barData = {
     labels: topEquipos.map(e => e.codigo),
@@ -226,24 +232,20 @@ export default function Dashboard() {
   const barOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-    },
+    plugins: { legend: { display: false } },
     scales: {
-      y: {
-        beginAtZero: true,
-        grid: { color: 'rgba(0,0,0,0.05)' },
-      },
-      x: {
-        grid: { display: false },
-      },
+      y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+      x: { grid: { display: false } },
     },
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="spinner"></div>
+      <div className="flex items-center justify-center h-screen bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-slate-500 font-medium">Cargando indicadores...</p>
+        </div>
       </div>
     );
   }
@@ -257,11 +259,6 @@ export default function Dashboard() {
           <p className="text-gray-500 mt-1">Control de maquinaria pesada - Grupo Vásquez</p>
         </div>
         <div className="flex items-center gap-3">
-          {usingDemo && (
-            <span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm font-medium">
-              ⚠️ Datos de demostración
-            </span>
-          )}
           <span className="text-sm text-gray-500">
             {new Date().toLocaleDateString('es-PE', {
               weekday: 'long',
@@ -374,7 +371,7 @@ export default function Dashboard() {
             <div>
               <p className="text-gray-500 text-sm">Horas Promedio</p>
               <p className="text-3xl font-bold text-gray-800 mt-1">
-                {formatNumber(Math.round(maquinaria.reduce((a, m) => a + m.horas_actuales, 0) / maquinaria.length))}
+                {formatNumber(stats.horasPromedio)}
               </p>
             </div>
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
@@ -458,7 +455,7 @@ export default function Dashboard() {
       {/* Tabla Resumen de Equipos */}
       <div className="card overflow-hidden">
         <div className="p-5 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800">Resumen de Equipos</h2>
+          <h2 className="text-lg font-bold text-gray-800">Resumen de Equipos (Top 10)</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="data-table">
@@ -473,7 +470,7 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {maquinaria.slice(0, 10).map((m) => (
+              {resumenEquipos.map((m) => (
                 <tr key={m.id}>
                   <td className="font-semibold">{m.codigo}</td>
                   <td>

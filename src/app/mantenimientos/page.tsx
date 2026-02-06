@@ -22,7 +22,9 @@ import { puedeVer, puedeEditar, puedeExportar } from '@/lib/permisos';
 import { Role } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { getSeriePorCodigo, getCodigoConSerie } from '@/lib/equipos-data';
+import { insertRow } from '@/lib/api';
 import EquipoInfoCard from '@/components/equipo-info-card';
+import { Maquinaria } from '@/lib/types';
 
 // Tipo para los mantenimientos mostrados
 interface MantenimientoDisplay {
@@ -91,14 +93,71 @@ export default function MantenimientosPage() {
 
     async function fetchData() {
         try {
-            const data = await fetchTable<MantenimientoDisplay>('mantenimientos', '&order=diferencia_horas');
-            if (data?.length > 0) {
-                setMantenimientos(data);
-                setUsingDemo(false);
+            // 1. Cargar mantenimientos
+            const dataMtos = await fetchTable<MantenimientoDisplay>('mantenimientos', '&order=diferencia_horas');
+
+            // 2. Cargar maquinas para sync
+            const dataMaquinas = await fetchTable<Maquinaria>('maquinaria');
+
+            if (dataMaquinas && dataMaquinas.length > 0) {
+                // Lógica de Sincronización:
+                // Verificar si hay alguna máquina que NO esté en mantenimientos y crearle su registro inicial.
+                const codigosEnMtos = new Set(dataMtos?.map(m => m.codigo_maquina) || []);
+                const nuevasMaquinas = [];
+
+                for (const maquina of dataMaquinas) {
+                    if (!codigosEnMtos.has(maquina.codigo)) {
+                        // Crear registro inicial de mantenimiento
+                        const nuevoMtto = {
+                            codigo_maquina: maquina.codigo,
+                            tipo: maquina.tipo,
+                            modelo: maquina.modelo,
+                            mantenimiento_ultimo: maquina.horas_actuales || 0,
+                            mantenimiento_proximo: (maquina.horas_actuales || 0) + 250,
+                            hora_actual: maquina.horas_actuales || 0,
+                            diferencia_horas: 250,
+                            operador: maquina.operador || 'SIN ASIGNAR',
+                            tramo: maquina.tramo || 'BASE',
+                            tipo_mantenimiento: 'PREVENTIVO 250H',
+                            estado_alerta: 'EN REGLA'
+                        };
+
+                        // Insertar en DB de manera silenciada (sin bloquear UI inmediata si es posible, o await)
+                        // Para asegurar consistencia, lo hacemos await
+                        await insertRow('mantenimientos', nuevoMtto);
+                        nuevasMaquinas.push({ ...nuevoMtto, id: `tmp-${Date.now()}-${maquina.codigo}` }); // ID temporal para UI
+                    }
+                }
+
+                if (nuevasMaquinas.length > 0) {
+                    console.log('🔄 Sincronizando: Se crearon registros de mtto para:', nuevasMaquinas.map(m => m.codigo_maquina));
+                    // Recargar todo para tener IDs reales o mezclar resultado (Recargar es más seguro)
+                    const dataMtosActualizado = await fetchTable<MantenimientoDisplay>('mantenimientos', '&order=diferencia_horas');
+                    if (dataMtosActualizado) {
+                        setMantenimientos(dataMtosActualizado);
+                        setUsingDemo(false);
+                    }
+                } else {
+                    if (dataMtos?.length > 0) {
+                        setMantenimientos(dataMtos);
+                        setUsingDemo(false);
+                    } else {
+                        // Si no hay mtos ni maquinas, demo
+                        setUsingDemo(true);
+                    }
+                }
+
             } else {
-                setUsingDemo(true);
+                if (dataMtos?.length > 0) {
+                    setMantenimientos(dataMtos);
+                    setUsingDemo(false);
+                } else {
+                    setUsingDemo(true);
+                }
             }
-        } catch {
+
+        } catch (error) {
+            console.error('Error fetching data:', error);
             setUsingDemo(true);
         } finally {
             setLoading(false);
@@ -341,9 +400,8 @@ export default function MantenimientosPage() {
                                     <div className="overflow-y-auto max-h-60">
                                         <button
                                             onClick={() => { setFilterCodigo(''); setShowCodigoFilter(false); setSearchCodigo(''); }}
-                                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                                                !filterCodigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                                            }`}
+                                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${!filterCodigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                                                }`}
                                         >
                                             Todos
                                         </button>
@@ -357,9 +415,8 @@ export default function MantenimientosPage() {
                                                 <button
                                                     key={codigo}
                                                     onClick={() => { setFilterCodigo(codigo); setShowCodigoFilter(false); setSearchCodigo(''); }}
-                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${
-                                                        filterCodigo === codigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                                                    }`}
+                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${filterCodigo === codigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                                                        }`}
                                                 >
                                                     <span className="text-base">
                                                         {ICONOS_MAQUINARIA[mantenimientos.find(m => m.codigo_maquina === codigo)?.tipo as TipoMaquinaria] || '🔧'}

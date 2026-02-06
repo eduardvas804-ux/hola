@@ -7,7 +7,7 @@ import { exportToExcel, formatFiltrosForExport } from '@/lib/export';
 import { EQUIPOS_MAESTRO, getCodigoReal, getSerieReal, getTipoReal, getModeloReal, getEquipoPorCodigoOSerie } from '@/lib/equipos-data';
 import { useAuth } from '@/components/auth-provider';
 import { puedeEliminar } from '@/lib/permisos';
-import { Role, Filtro } from '@/lib/types';
+import { Role, Filtro, Maquinaria } from '@/lib/types';
 
 const DEMO_FILTROS = [
     { id: '1', maquinaria_codigo: 'EXC-01', filtro_separador_1: '438-5386', cantidad_sep_1: 1, filtro_combustible_1: '1R-0751', cantidad_comb_1: 2, filtro_aceite_motor: '1R-0739', cantidad_aceite: 1, filtro_aire_primario: '131-8822', cantidad_aire_prim: 1, filtro_aire_secundario: '131-8821', cantidad_aire_sec: 1 },
@@ -20,6 +20,7 @@ const DEMO_FILTROS = [
 
 export default function FiltrosPage() {
     const [filtros, setFiltros] = useState<Filtro[]>(DEMO_FILTROS as Filtro[]);
+    const [equiposList, setEquiposList] = useState<Maquinaria[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCodigo, setFilterCodigo] = useState('');
@@ -50,6 +51,16 @@ export default function FiltrosPage() {
             setFiltros(DEMO_FILTROS as Filtro[]);
         } finally {
             setLoading(false);
+        }
+
+        // Cargar lista de maquinaria
+        try {
+            const maquinariaData = await fetchTable<Maquinaria>('maquinaria', '&order=codigo');
+            if (maquinariaData && maquinariaData.length > 0) {
+                setEquiposList(maquinariaData);
+            }
+        } catch (e) {
+            console.error('Error loading machinery for filters:', e);
         }
     }
 
@@ -300,25 +311,39 @@ export default function FiltrosPage() {
                                         >
                                             Todos
                                         </button>
-                                        {EQUIPOS_MAESTRO
-                                            .filter(eq => {
-                                                const term = searchCodigo.toLowerCase();
-                                                return eq.codigo.toLowerCase().includes(term) ||
-                                                       eq.serie.toLowerCase().includes(term) ||
-                                                       eq.tipo.toLowerCase().includes(term) ||
-                                                       eq.modelo.toLowerCase().includes(term);
-                                            })
-                                            .map(eq => (
+                                        {equiposList.length > 0 ? (
+                                            equiposList.map(eq => (
                                                 <button
-                                                    key={eq.codigo}
+                                                    key={eq.id}
                                                     onClick={() => { setFilterCodigo(eq.codigo); setShowCodigoFilter(false); setSearchCodigo(''); }}
-                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${filterCodigo === eq.codigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${filterCodigo === eq.codigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
                                                 >
                                                     <span className="font-medium">{eq.codigo}</span>
                                                     <span className="text-gray-500 ml-2">{eq.tipo} {eq.modelo}</span>
                                                     <span className="text-gray-400 ml-1">({eq.serie})</span>
                                                 </button>
-                                            ))}
+                                            ))
+                                        ) : (
+                                            EQUIPOS_MAESTRO
+                                                .filter(eq => {
+                                                    const term = searchCodigo.toLowerCase();
+                                                    return eq.codigo.toLowerCase().includes(term) ||
+                                                        eq.serie.toLowerCase().includes(term) ||
+                                                        eq.tipo.toLowerCase().includes(term) ||
+                                                        eq.modelo.toLowerCase().includes(term);
+                                                })
+                                                .map(eq => (
+                                                    <button
+                                                        key={eq.codigo}
+                                                        onClick={() => { setFilterCodigo(eq.codigo); setShowCodigoFilter(false); setSearchCodigo(''); }}
+                                                        className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${filterCodigo === eq.codigo ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                                                    >
+                                                        <span className="font-medium">{eq.codigo}</span>
+                                                        <span className="text-gray-500 ml-2">{eq.tipo} {eq.modelo}</span>
+                                                        <span className="text-gray-400 ml-1">({eq.serie})</span>
+                                                    </button>
+                                                ))
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -363,7 +388,7 @@ export default function FiltrosPage() {
                         className={`card overflow-hidden transition-all ${selectedItems.includes(f.id)
                             ? 'ring-2 ring-blue-500 bg-blue-50/50'
                             : 'hover:shadow-lg'
-                        }`}
+                            }`}
                     >
                         {/* Header del card - Código, Tipo y Serie */}
                         <div
