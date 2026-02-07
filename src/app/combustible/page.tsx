@@ -305,12 +305,11 @@ export default function CombustiblePage() {
 
     // Cálculo de rendimiento por máquina
     const rendimientoMaquinas = useMemo((): RendimientoMaquina[] => {
-        // ACTUALIZACIÓN: Solo considerar CISTERNA y excluir el último abastecimiento
-        // para evitar doble conteo (el abastecimiento actual es para el siguiente periodo)
+        // MODIFICADO: Incluir CISTERNA y GRIFO (todo consumo "SALIDA")
         const salidas = registros.filter(r =>
             r.tipo_movimiento === 'SALIDA' &&
             r.codigo_maquina !== 'CISTERNA' &&
-            r.fuente_combustible === 'CISTERNA' && // Solo CISTERNA
+            // r.fuente_combustible === 'CISTERNA' && // ELIMINADO: Incluir todas las fuentes (Grifo también)
             r.horometro && r.horometro > 0
         );
 
@@ -337,15 +336,21 @@ export default function CombustiblePage() {
             if (horas_trabajadas <= 0) return;
 
             // Calcular galones: SOLO sumar los anteriores (0 hasta N-1), EXCLUIR el último
-            // El último abastecimiento es para el trabajo futuro, no para el intervalo pasado.
+            // El último abastecimiento se considera para el trabajo futuro
+            let galones_cisterna = 0;
+            let galones_grifo = 0;
             let total_galones = 0;
-            for (let i = 0; i < sortedRecords.length - 1; i++) {
-                total_galones += sortedRecords[i].galones;
-            }
 
-            // Ya filtramos por CISTERNA arriba, así que todo es Cisterna
-            const galones_cisterna = total_galones;
-            const galones_grifo = 0;
+            for (let i = 0; i < sortedRecords.length - 1; i++) {
+                const rec = sortedRecords[i];
+                total_galones += rec.galones;
+
+                if (rec.fuente_combustible === 'CISTERNA') {
+                    galones_cisterna += rec.galones;
+                } else {
+                    galones_grifo += rec.galones;
+                }
+            }
 
             const rendimiento_gal_hora = total_galones / horas_trabajadas;
 
