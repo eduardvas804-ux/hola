@@ -305,11 +305,12 @@ export default function CombustiblePage() {
 
     // Cálculo de rendimiento por máquina
     const rendimientoMaquinas = useMemo((): RendimientoMaquina[] => {
-        // Incluir TODAS las salidas de combustible (cisterna + grifo)
-        // Ambas fuentes representan consumo real de la máquina
+        // ACTUALIZACIÓN: Solo considerar CISTERNA y excluir el último abastecimiento
+        // para evitar doble conteo (el abastecimiento actual es para el siguiente periodo)
         const salidas = registros.filter(r =>
             r.tipo_movimiento === 'SALIDA' &&
             r.codigo_maquina !== 'CISTERNA' &&
+            r.fuente_combustible === 'CISTERNA' && // Solo CISTERNA
             r.horometro && r.horometro > 0
         );
 
@@ -326,26 +327,31 @@ export default function CombustiblePage() {
         porMaquina.forEach((records, codigo) => {
             if (records.length < 2) return; // Necesitamos al menos 2 registros para calcular
 
-            const horometros = records.map(r => r.horometro!).sort((a, b) => a - b);
-            const horometro_inicial = horometros[0];
-            const horometro_final = horometros[horometros.length - 1];
+            // Ordenar por horómetro ascendente
+            const sortedRecords = [...records].sort((a, b) => (a.horometro || 0) - (b.horometro || 0));
+
+            const horometro_inicial = sortedRecords[0].horometro!;
+            const horometro_final = sortedRecords[sortedRecords.length - 1].horometro!;
             const horas_trabajadas = horometro_final - horometro_inicial;
 
             if (horas_trabajadas <= 0) return;
 
-            // Calcular galones por fuente
-            const galones_cisterna = records
-                .filter(r => r.fuente_combustible === 'CISTERNA')
-                .reduce((sum, r) => sum + r.galones, 0);
-            const galones_grifo = records
-                .filter(r => r.fuente_combustible === 'GRIFO')
-                .reduce((sum, r) => sum + r.galones, 0);
-            const total_galones = galones_cisterna + galones_grifo;
+            // Calcular galones: SOLO sumar los anteriores (0 hasta N-1), EXCLUIR el último
+            // El último abastecimiento es para el trabajo futuro, no para el intervalo pasado.
+            let total_galones = 0;
+            for (let i = 0; i < sortedRecords.length - 1; i++) {
+                total_galones += sortedRecords[i].galones;
+            }
+
+            // Ya filtramos por CISTERNA arriba, así que todo es Cisterna
+            const galones_cisterna = total_galones;
+            const galones_grifo = 0;
+
             const rendimiento_gal_hora = total_galones / horas_trabajadas;
 
             result.push({
                 codigo_maquina: codigo,
-                tipo_maquina: records[0].tipo_maquina,
+                tipo_maquina: sortedRecords[0].tipo_maquina,
                 total_galones,
                 galones_cisterna,
                 galones_grifo,
@@ -353,7 +359,7 @@ export default function CombustiblePage() {
                 horometro_final,
                 horas_trabajadas,
                 rendimiento_gal_hora,
-                registros_count: records.length
+                registros_count: sortedRecords.length
             });
         });
 
