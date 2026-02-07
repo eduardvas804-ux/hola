@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Fuel,
     Search,
     Download,
     TrendingUp,
     TrendingDown,
-    DollarSign,
     Save,
     X,
     Edit,
@@ -23,7 +22,7 @@ import {
 } from 'lucide-react';
 import { fetchTableWithStatus, insertRow, updateRow, deleteRow, registrarCambio } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
-import { ICONOS_MAQUINARIA, TipoMaquinaria, Role, RegistroCombustible, FuenteCombustible, RendimientoMaquina } from '@/lib/types';
+import { ICONOS_MAQUINARIA, TipoMaquinaria, Role, RegistroCombustible, FuenteCombustible, RendimientoMaquina, Maquinaria } from '@/lib/types';
 import { exportToExcel } from '@/lib/export';
 import { useAuth } from '@/components/auth-provider';
 import { puedeVer, puedeCrear, puedeEditar, puedeEliminar, puedeExportar } from '@/lib/permisos';
@@ -56,7 +55,7 @@ const GRIFOS_COMUNES = [
 
 export default function CombustiblePage() {
     const [registros, setRegistros] = useState<RegistroCombustible[]>(DEMO_COMBUSTIBLE);
-    const [maquinaria, setMaquinaria] = useState<any[]>([]);
+    const [maquinaria, setMaquinaria] = useState<Maquinaria[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [tipoFormulario, setTipoFormulario] = useState<TipoFormulario>('DESPACHO_CISTERNA');
@@ -94,27 +93,11 @@ export default function CombustiblePage() {
     const [formData, setFormData] = useState(emptyForm);
     const [useManualEquipo, setUseManualEquipo] = useState(false);
 
-    useEffect(() => {
-        if (profile && !puedeVer(userRole, 'combustible')) {
-            router.push('/');
-            return;
-        }
-        fetchData();
-    }, [profile, userRole, router]);
-
-    useEffect(() => {
-        // Calcular total automáticamente
-        if (formData.galones && formData.precio_galon) {
-            const total = (formData.galones || 0) * (formData.precio_galon || 0);
-            setFormData(prev => ({ ...prev, total }));
-        }
-    }, [formData.galones, formData.precio_galon]);
-
-    async function fetchData() {
+    const fetchData = useCallback(async () => {
         try {
             const [combustibleResult, maquinariaResult] = await Promise.all([
                 fetchTableWithStatus<RegistroCombustible>('combustible', '&order=fecha.desc'),
-                fetchTableWithStatus<any>('maquinaria', '&order=codigo')
+                fetchTableWithStatus<Maquinaria>('maquinaria', '&order=codigo')
             ]);
 
             if (combustibleResult.connected) {
@@ -130,7 +113,23 @@ export default function CombustiblePage() {
         } finally {
             setLoading(false);
         }
-    }
+    }, []);
+
+    useEffect(() => {
+        if (profile && !puedeVer(userRole, 'combustible')) {
+            router.push('/');
+            return;
+        }
+        fetchData();
+    }, [profile, userRole, router, fetchData]);
+
+    useEffect(() => {
+        // Calcular total automáticamente
+        if (formData.galones && formData.precio_galon) {
+            const total = (formData.galones || 0) * (formData.precio_galon || 0);
+            setFormData(prev => ({ ...prev, total }));
+        }
+    }, [formData.galones, formData.precio_galon]);
 
     function openModal(tipo: TipoFormulario) {
         setTipoFormulario(tipo);
@@ -303,13 +302,13 @@ export default function CombustiblePage() {
         };
     }, [registros]);
 
-    // Cálculo de rendimiento por máquina
+    // Cálculo de rendimiento por máquina (Método de Reabastecimiento / Refill Method)
     const rendimientoMaquinas = useMemo((): RendimientoMaquina[] => {
-        // MODIFICADO: Incluir CISTERNA y GRIFO (todo consumo "SALIDA")
+        // Filtrar solo registros de abastecimiento a máquinas (Salidas)
+        // Se incluyen tanto CISTERNA como GRIFO para obtener el consumo real total
         const salidas = registros.filter(r =>
             r.tipo_movimiento === 'SALIDA' &&
             r.codigo_maquina !== 'CISTERNA' &&
-            // r.fuente_combustible === 'CISTERNA' && // ELIMINADO: Incluir todas las fuentes (Grifo también)
             r.horometro && r.horometro > 0
         );
 
@@ -324,51 +323,68 @@ export default function CombustiblePage() {
         const result: RendimientoMaquina[] = [];
 
         porMaquina.forEach((records, codigo) => {
-            if (records.length < 2) return; // Necesitamos al menos 2 registros para calcular
+            if (records.length < 2) return; // Se necesitan al menos 2 puntos para un intervalo
 
             // Ordenar por horómetro ascendente
             const sortedRecords = [...records].sort((a, b) => (a.horometro || 0) - (b.horometro || 0));
 
-            const horometro_inicial = sortedRecords[0].horometro!;
-            const horometro_final = sortedRecords[sortedRecords.length - 1].horometro!;
-            const horas_trabajadas = horometro_final - horometro_inicial;
-
-            if (horas_trabajadas <= 0) return;
-
-            // Calcular galones: SOLO sumar los anteriores (0 hasta N-1), EXCLUIR el último
-            // El último abastecimiento se considera para el trabajo futuro
+            let total_galones_consumidos = 0; // Total para mostrar
+            let galones_cisterna_para_calculo = 0; // Solo cisterna para eficiencia
             let galones_cisterna = 0;
             let galones_grifo = 0;
-            let total_galones = 0;
+            let horas_trabajadas = 0;
 
-            for (let i = 0; i < sortedRecords.length - 1; i++) {
-                const rec = sortedRecords[i];
-                total_galones += rec.galones;
+            const horometro_inicial = sortedRecords[0].horometro!;
+            const horometro_final = sortedRecords[sortedRecords.length - 1].horometro!;
 
-                if (rec.fuente_combustible === 'CISTERNA') {
-                    galones_cisterna += rec.galones;
+            // Iterar desde el segundo registro (índice 1) para formar intervalos con el anterior
+            for (let i = 1; i < sortedRecords.length; i++) {
+                const prev = sortedRecords[i - 1];
+                const curr = sortedRecords[i];
+
+                const delta_horas = (curr.horometro || 0) - (prev.horometro || 0);
+
+                // Si el horómetro se reinició o hay un error (negativo), saltar este intervalo
+                if (delta_horas <= 0) continue;
+
+                // Lógica de Reabastecimiento: 
+                // Los galones que echamos AHORA (curr) son para reponer lo consumido desde la última vez (prev).
+                const consumo_intervalo = curr.galones;
+
+                horas_trabajadas += delta_horas;
+                total_galones_consumidos += consumo_intervalo;
+
+                if (curr.fuente_combustible === 'CISTERNA') {
+                    galones_cisterna += consumo_intervalo;
+                    galones_cisterna_para_calculo += consumo_intervalo;
                 } else {
-                    galones_grifo += rec.galones;
+                    galones_grifo += consumo_intervalo;
+                    // NO sumamos a galones_cisterna_para_calculo porque es Grifo
                 }
             }
 
-            const rendimiento_gal_hora = total_galones / horas_trabajadas;
+            if (horas_trabajadas > 0) {
+                // MODIFICADO: El rendimiento solo considera el combustible de CISTERNA
+                // Rendimiento = Galones Cisterna / Horas Trabajadas
+                const rendimiento_gal_hora = galones_cisterna_para_calculo / horas_trabajadas;
 
-            result.push({
-                codigo_maquina: codigo,
-                tipo_maquina: sortedRecords[0].tipo_maquina,
-                total_galones,
-                galones_cisterna,
-                galones_grifo,
-                horometro_inicial,
-                horometro_final,
-                horas_trabajadas,
-                rendimiento_gal_hora,
-                registros_count: sortedRecords.length
-            });
+                result.push({
+                    codigo_maquina: codigo,
+                    tipo_maquina: sortedRecords[0].tipo_maquina,
+                    total_galones: total_galones_consumidos,
+                    galones_cisterna,
+                    galones_grifo,
+                    horometro_inicial,
+                    horometro_final,
+                    horas_trabajadas,
+                    rendimiento_gal_hora,
+                    registros_count: sortedRecords.length
+                });
+            }
         });
 
-        return result.sort((a, b) => a.rendimiento_gal_hora - b.rendimiento_gal_hora);
+        // Ordenar por rendimiento de mayor a menor consumo
+        return result.sort((a, b) => b.rendimiento_gal_hora - a.rendimiento_gal_hora);
     }, [registros]);
 
     if (loading) {
