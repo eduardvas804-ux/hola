@@ -214,7 +214,7 @@ export default function CombustiblePage() {
                     await registrarCambio('combustible', 'UPDATE', `${dataToSave.tipo_movimiento}-${dataToSave.codigo_maquina}`, editingItem, dataToSave, usuarioInfo);
 
                     // Actualizar horómetros si es una máquina y tiene horómetro válido
-                    if (dataToSave.codigo_maquina !== 'CISTERNA' && dataToSave.horometro && dataToSave.horometro > 0) {
+                    if (dataToSave.codigo_maquina && dataToSave.codigo_maquina !== 'CISTERNA' && dataToSave.horometro && dataToSave.horometro > 0) {
                         await updateMachineHours(dataToSave.codigo_maquina, dataToSave.horometro, usuarioInfo);
                     }
                 } else {
@@ -222,7 +222,7 @@ export default function CombustiblePage() {
                     await registrarCambio('combustible', 'CREATE', `${dataToSave.tipo_movimiento}-${dataToSave.codigo_maquina}`, null, dataToSave, usuarioInfo);
 
                     // Actualizar horómetros si es una máquina y tiene horómetro válido
-                    if (dataToSave.codigo_maquina !== 'CISTERNA' && dataToSave.horometro && dataToSave.horometro > 0) {
+                    if (dataToSave.codigo_maquina && dataToSave.codigo_maquina !== 'CISTERNA' && dataToSave.horometro && dataToSave.horometro > 0) {
                         await updateMachineHours(dataToSave.codigo_maquina, dataToSave.horometro, usuarioInfo);
                     }
                 }
