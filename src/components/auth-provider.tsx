@@ -43,8 +43,25 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const [session, setSession] = useState<Session | null>(null);
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
+    const [showReset, setShowReset] = useState(false);
     const router = useRouter();
     const pathname = usePathname();
+
+    useEffect(() => {
+        if (loading) {
+            const timer = setTimeout(() => setShowReset(true), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [loading]);
+
+    const handleForceReset = () => {
+        localStorage.clear();
+        sessionStorage.clear();
+        document.cookie.split(";").forEach((c) => {
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+        window.location.href = '/login';
+    };
 
     useEffect(() => {
         let isMounted = true;
@@ -247,14 +264,30 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         signOut,
     };
 
-    // Mostrar loading mientras se verifica la sesión
+
+
+    // Verificando sesión
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-screen bg-slate-50">
+            <div className="flex items-center justify-center h-screen bg-slate-50 flex-col gap-6">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                     <p className="text-sm text-gray-500 font-medium">Verificando sesión...</p>
                 </div>
+
+                {showReset && (
+                    <div className="text-center animate-fade-in px-4">
+                        <p className="text-xs text-red-500 mb-3">
+                            ¿Tarda demasiado? Es posible que la sesión haya caducado.
+                        </p>
+                        <button
+                            onClick={handleForceReset}
+                            className="px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm rounded-lg hover:bg-slate-50 hover:text-slate-800 transition-colors shadow-sm"
+                        >
+                            Reiniciar Aplicación
+                        </button>
+                    </div>
+                )}
             </div>
         );
     }
