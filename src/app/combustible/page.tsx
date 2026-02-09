@@ -20,7 +20,7 @@ import {
     BarChart3,
     Car
 } from 'lucide-react';
-import { fetchTableWithStatus, insertRow, updateRow, deleteRow, registrarCambio } from '@/lib/api';
+import { fetchTableWithStatus, insertRow, updateRow, deleteRow, registrarCambio, updateMachineHours } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
 import { ICONOS_MAQUINARIA, TipoMaquinaria, Role, RegistroCombustible, FuenteCombustible, RendimientoMaquina, Maquinaria } from '@/lib/types';
 import { exportToExcel } from '@/lib/export';
@@ -212,9 +212,19 @@ export default function CombustiblePage() {
                 if (editingItem) {
                     await updateRow('combustible', editingItem.id, dataToSave);
                     await registrarCambio('combustible', 'UPDATE', `${dataToSave.tipo_movimiento}-${dataToSave.codigo_maquina}`, editingItem, dataToSave, usuarioInfo);
+
+                    // Actualizar horómetros si es una máquina y tiene horómetro válido
+                    if (dataToSave.codigo_maquina !== 'CISTERNA' && dataToSave.horometro && dataToSave.horometro > 0) {
+                        await updateMachineHours(dataToSave.codigo_maquina, dataToSave.horometro, usuarioInfo);
+                    }
                 } else {
                     await insertRow('combustible', dataToSave);
                     await registrarCambio('combustible', 'CREATE', `${dataToSave.tipo_movimiento}-${dataToSave.codigo_maquina}`, null, dataToSave, usuarioInfo);
+
+                    // Actualizar horómetros si es una máquina y tiene horómetro válido
+                    if (dataToSave.codigo_maquina !== 'CISTERNA' && dataToSave.horometro && dataToSave.horometro > 0) {
+                        await updateMachineHours(dataToSave.codigo_maquina, dataToSave.horometro, usuarioInfo);
+                    }
                 }
                 fetchData();
             } catch (error) {

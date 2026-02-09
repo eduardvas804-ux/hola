@@ -425,3 +425,52 @@ export async function getEquiposVinculados(identificador: string): Promise<{
         return { maquinaria: null, mantenimiento: null, soat: null, citv: null, filtros: null };
     }
 }
+
+// Actualizar horómetros de maquinaria desde combustible
+export async function updateMachineHours(
+    codigo_maquina: string,
+    nuevo_horometro: number,
+    usuarioInfo: { id: string; email: string; nombre: string }
+): Promise<{ success: boolean; message: string }> {
+    if (!isConfigured()) return { success: false, message: 'Supabase no configurado' };
+
+    try {
+        // 1. Obtener registro de mantenimiento actual
+        const mantenimientos = await fetchTable<any>('mantenimientos', `&codigo_maquina=eq.${codigo_maquina}`);
+        const mtoActual = mantenimientos[0];
+
+        if (mtoActual) {
+            // Calcular nuevos valores
+            const diferencia = mtoActual.mantenimiento_proximo - nuevo_horometro;
+            let estadoAlerta = 'EN REGLA';
+            if (diferencia <= 0) estadoAlerta = 'VENCIDO';
+            else if (diferencia <= 50) estadoAlerta = 'URGENTE';
+            else if (diferencia <= 100) estadoAlerta = 'PROXIMO';
+
+            // Actualizar tabla mantenimientos
+            const datosNuevosMto = {
+                hora_actual: nuevo_horometro,
+                diferencia_horas: diferencia,
+                estado_alerta: estadoAlerta
+            };
+
+            await updateRow('mantenimientos', mtoActual.id, datosNuevosMto);
+            await registrarCambio('mantenimientos', 'UPDATE', codigo_maquina, mtoActual, { ...mtoActual, ...datosNuevosMto }, usuarioInfo);
+        }
+
+        // 2. Actualizar tabla maquinaria
+        const maquinarias = await fetchTable<any>('maquinaria', `&codigo=eq.${codigo_maquina}`);
+        const maquinaActual = maquinarias[0];
+
+        if (maquinaActual) {
+            await updateRow('maquinaria', maquinaActual.id, { horas_actuales: nuevo_horometro });
+            // No registramos cambio en historial de maquinaria para no saturar, ya que mantenimiento es el principal
+        }
+
+        return { success: true, message: 'Horómetros actualizados correctamente' };
+    } catch (error: any) {
+        console.error('Error in updateMachineHours:', error);
+        return { success: false, message: error.message || 'Error al actualizar horómetros' };
+    }
+}
+
